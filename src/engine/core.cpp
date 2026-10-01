@@ -25,6 +25,9 @@
 #include <set>
 #include <stdexcept>
 
+#if defined( TARGET_NINTENDO_3DS )
+#include <3ds.h>
+#else
 // Managing compiler warnings for SDL headers
 #if defined( __GNUC__ )
 #pragma GCC diagnostic push
@@ -40,6 +43,8 @@
 // Managing compiler warnings for SDL headers
 #if defined( __GNUC__ )
 #pragma GCC diagnostic pop
+#endif
+
 #endif
 
 #include "audio.h"
@@ -85,6 +90,36 @@ namespace
     }
 #endif
 
+#if defined( TARGET_NINTENDO_3DS )
+    std::set<System::SystemInitializationComponent> initializedComponents;
+
+    bool initCoreInternally( const std::set<System::SystemInitializationComponent> & components )
+    {
+        gfxInitDefault();
+        gfxSet3D( false );
+        gfxSetScreenFormat( GFX_TOP, GSP_BGR8_OES );
+        gfxSetScreenFormat( GFX_BOTTOM, GSP_BGR8_OES );
+        osSetSpeedupEnable( true );
+        initializedComponents = components;
+        Audio::Init();
+        LocalEvent::Get().initController();
+        LocalEvent::initEventEngine();
+        return true;
+    }
+
+    void freeCoreInternally()
+    {
+        LocalEvent::Get().CloseController();
+        Audio::Quit();
+        gfxExit();
+        initializedComponents.clear();
+    }
+
+    bool isComponentInitializedInternally( const System::SystemInitializationComponent component )
+    {
+        return initializedComponents.count( component ) != 0;
+    }
+#else
     uint32_t convertToSDLFlag( const System::SystemInitializationComponent component )
     {
         switch ( component ) {
@@ -155,6 +190,7 @@ namespace
 
         return SDL_WasInit( sdlFlag ) != 0;
     }
+#endif
 }
 
 namespace System
@@ -173,7 +209,7 @@ namespace System
     {
         std::set<SystemInitializationComponent> components{ SystemInitializationComponent::Audio, SystemInitializationComponent::Video };
 
-#if defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_SWITCH )
+#if defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_SWITCH ) || defined( TARGET_NINTENDO_3DS )
         components.emplace( SystemInitializationComponent::GameController );
 #endif
 

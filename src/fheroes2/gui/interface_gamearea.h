@@ -286,6 +286,11 @@ namespace Interface
 
         fheroes2::Size _visibleTileCount; // number of tiles to be drawn on screen
 
+#if defined( TARGET_NINTENDO_3DS )
+        int32_t _hoverTile{ -1 };
+        bool _hoverShown{ false };
+        fheroes2::Time _hoverTime;
+#endif
         int32_t _prevIndexPos{ 0 };
         int scrollDirection{ 0 };
         bool updateCursor{ false };

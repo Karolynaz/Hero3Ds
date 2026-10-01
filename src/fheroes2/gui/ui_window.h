@@ -109,6 +109,9 @@ namespace fheroes2
         }
 
     private:
+#if defined( TARGET_NINTENDO_3DS )
+        Scope3DSStandardLayout _standard3DSLayout;
+#endif
         Image & _output;
         const Rect _activeArea;
         const Rect _windowArea;

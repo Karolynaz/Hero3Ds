@@ -56,6 +56,8 @@ namespace Interface
 
         fheroes2::GameMode queueEventProcessing();
 
+        const fheroes2::Rect & endTurnArea() const { return _endTurnRect; }
+
         // Do not call this method directly, use Interface::AdventureMap::redraw() instead to avoid issues in the "no interface" mode.
         // The name of this method starts from _ on purpose to do not mix with other public methods.
         void _redraw();

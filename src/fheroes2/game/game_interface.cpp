@@ -35,6 +35,9 @@
 #include "game_hotkeys.h"
 #include "icn.h"
 #include "image.h"
+#include "kingdom.h"
+#include "resource.h"
+#include "ui_text.h"
 #include "interface_border.h"
 #include "interface_gamearea.h"
 #include "interface_radar.h"
@@ -47,6 +50,7 @@
 #include "ui_button.h"
 #include "ui_constants.h"
 #include "ui_tool.h"
+#include "tools.h"
 #include "world.h"
 
 Interface::AdventureMap::AdventureMap()
@@ -66,8 +70,26 @@ void Interface::AdventureMap::reset()
 
     Settings & conf = Settings::Get();
     _isCurrentInterfaceEvil = conf.isEvilInterfaceEnabled();
+#if defined( TARGET_NINTENDO_3DS )
+    conf.setHideInterface( false );
+#endif
     const bool isHideInterface = conf.isHideInterfaceEnabled();
 
+#if defined( TARGET_NINTENDO_3DS )
+    // Widgets use native screen pixels on the shared 640 x 480 canvas.
+    // The backend crops its upper 400 x 240 and lower 320 x 240 regions.
+    fheroes2::set3DSAdventureLayout( true );
+    fheroes2::Fill( fheroes2::Display::instance(), 0, 240, 320, 240, fheroes2::GetColorId( 0x51, 0x31, 0x18 ) );
+    conf.SetShowRadar( true );
+    conf.SetShowIcons( true );
+    conf.SetShowButtons( true );
+    conf.SetShowStatus( true );
+    conf.SetShowControlPanel( false );
+    _radar.SetPos( 8, 248 );
+    _iconsPanel.SetPos( 168, 248 );
+    _buttonsPanel.SetPos( 168, 400 );
+    _statusPanel.SetPos( 8, 408 );
+#else
     if ( isHideInterface ) {
         conf.SetShowControlPanel( true );
 
@@ -103,10 +125,16 @@ void Interface::AdventureMap::reset()
         _statusPanel.SetPos( px, _buttonsPanel.GetArea().y + _buttonsPanel.GetArea().height );
     }
 
+#endif
+
     const fheroes2::Point prevCenter = _gameArea.getCurrentCenterInPixels();
     const fheroes2::Rect prevRoi = _gameArea.GetROI();
 
+#if defined( TARGET_NINTENDO_3DS )
+    _gameArea.SetAreaPosition( 8, 24, 384, 208 );
+#else
     _gameArea.generate( { display.width(), display.height() }, isHideInterface );
+#endif
 
     const fheroes2::Rect newRoi = _gameArea.GetROI();
 
@@ -127,6 +155,9 @@ void Interface::AdventureMap::redraw( const uint32_t force )
         return;
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    fheroes2::set3DSAdventureLayout( true );
+#endif
     const Settings & conf = Settings::Get();
 
     const uint32_t combinedRedraw = _redraw | force;
@@ -157,7 +188,11 @@ void Interface::AdventureMap::redraw( const uint32_t force )
         _iconsPanel._redrawIcons( ICON_CASTLES );
     }
 
-    if ( ( hideInterface && conf.ShowButtons() ) || ( combinedRedraw & REDRAW_BUTTONS ) ) {
+    if ( ( hideInterface && conf.ShowButtons() ) || ( combinedRedraw & REDRAW_BUTTONS )
+#if defined( TARGET_NINTENDO_3DS )
+         || ( combinedRedraw & REDRAW_GAMEAREA )
+#endif
+       ) {
         _buttonsPanel._redraw();
     }
 
@@ -169,6 +204,31 @@ void Interface::AdventureMap::redraw( const uint32_t force )
         GameBorderRedraw( false );
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    // A compact resource strip leaves the native map view unobstructed.
+    if ( world.CountDay() != 0 ) {
+        auto & display = fheroes2::Display::instance();
+        fheroes2::Fill( display, 8, 2, 384, 20, fheroes2::GetColorId( 0x51, 0x31, 0x18 ) );
+        const auto & funds = world.GetKingdom( conf.CurrentColor() ).GetFunds();
+        const int resources[] = { Resource::WOOD, Resource::MERCURY, Resource::ORE, Resource::SULFUR, Resource::CRYSTAL, Resource::GEMS, Resource::GOLD };
+        static const std::vector<fheroes2::Image> icons = []() {
+            std::vector<fheroes2::Image> result;
+            for ( uint32_t i = 0; i < 7; ++i ) {
+                const auto & original = Assets::getImage( ICN::RESOURCE, i );
+                fheroes2::Image icon( 14, 14 );
+                fheroes2::Resize( original, icon );
+                result.emplace_back( std::move( icon ) );
+            }
+            return result;
+        }();
+        for ( size_t i = 0; i < 7; ++i ) {
+            const int32_t x = 10 + static_cast<int32_t>( i ) * 54;
+            fheroes2::Blit( icons[i], display, x, 4 );
+            fheroes2::Text text( fheroes2::abbreviateNumber( funds.Get( resources[i] ) ), fheroes2::FontType::smallWhite() );
+            text.draw( x + 16, 7, display );
+        }
+    }
+#endif
     _redraw = 0;
 }
 

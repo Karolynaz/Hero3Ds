@@ -31,6 +31,7 @@
 #include <set>
 #include <utility>
 
+#if !defined( TARGET_NINTENDO_3DS )
 // Managing compiler warnings for SDL headers
 #if defined( __GNUC__ )
 #pragma GCC diagnostic push
@@ -57,6 +58,11 @@
 #pragma GCC diagnostic pop
 #endif
 
+#else
+#include <3ds.h>
+#include "framebuffer_3ds.h"
+#endif
+
 #if defined( TARGET_PS_VITA )
 #include <vita2d.h>
 #endif
@@ -68,6 +74,7 @@
 
 namespace
 {
+ #if !defined( TARGET_NINTENDO_3DS )
     // Returns nearest screen supported resolution
     fheroes2::ResolutionInfo GetNearestResolution( fheroes2::ResolutionInfo resolutionInfo, const std::vector<fheroes2::ResolutionInfo> & resolutions )
     {
@@ -195,6 +202,8 @@ namespace
     }
 #endif
 
+#endif
+
     std::vector<uint8_t> StandardPaletteIndexes()
     {
         std::vector<uint8_t> indexes( fheroes2::paletteSize );
@@ -265,7 +274,7 @@ namespace
     const fheroes2::RGB * currentRGBPalette = RGBPalette();
 
 // If SDL library is used
-#if !defined( TARGET_PS_VITA )
+#if !defined( TARGET_PS_VITA ) && !defined( TARGET_NINTENDO_3DS )
     class BaseSDLRenderer
     {
     protected:
@@ -608,7 +617,9 @@ namespace
     };
 #endif
 
-#if defined( TARGET_PS_VITA )
+#if defined( TARGET_NINTENDO_3DS )
+#include "screen_3ds.inc"
+#elif defined( TARGET_PS_VITA )
     class RenderCursor final : public fheroes2::Cursor
     {
     public:
@@ -1447,6 +1458,14 @@ namespace
 
 namespace fheroes2
 {
+    static bool adventure3DSLayout = false;
+    static unsigned standard3DSLayoutDepth = 0;
+
+    void set3DSAdventureLayout( const bool enabled ) { adventure3DSLayout = enabled; }
+    bool is3DSAdventureLayout() { return adventure3DSLayout && standard3DSLayoutDepth == 0; }
+    void push3DSStandardLayout() { ++standard3DSLayoutDepth; }
+    void pop3DSStandardLayout() { assert( standard3DSLayoutDepth > 0 ); --standard3DSLayoutDepth; }
+
     void BaseRenderEngine::linkRenderSurface( uint8_t * surface ) const
     {
         Display::instance().linkRenderSurface( surface );

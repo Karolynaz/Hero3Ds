@@ -1117,6 +1117,20 @@ void Interface::GameArea::QueueEventProcessing()
 
     int32_t index = GetValidTileIdFromPoint( mousePosition );
 
+#if defined( TARGET_NINTENDO_3DS )
+    if ( index != _hoverTile || le.isAnyKeyPressed() || le.isMouseLeftButtonPressed() ) {
+        _hoverTile = index;
+        _hoverShown = false;
+        _hoverTime.reset();
+    }
+    if ( Maps::isValidAbsIndex( index ) && !_hoverShown && _hoverTime.getMs() >= 1500
+         && MP2::isInGameActionObject( world.getTile( index ).getMainObjectType() ) ) {
+        _hoverShown = true;
+        _interface.mouseCursorAreaPressRight( index );
+        _hoverTime.reset();
+    }
+#endif
+
     if ( !Maps::isValidAbsIndex( index ) ) {
         // Change the cursor image when it gets out of the map boundaries or by 'updateCursor' flag.
         if ( updateCursor || index != _prevIndexPos ) {
@@ -1135,7 +1149,7 @@ void Interface::GameArea::QueueEventProcessing()
 
     const fheroes2::Point tileOffset = getInternalPosition( mousePosition );
     const fheroes2::Point tilePos( ( tileOffset.x / fheroes2::tileWidthPx ) * fheroes2::tileWidthPx - _topLeftTileOffset.x + _windowROI.x,
-                                   ( tileOffset.y / fheroes2::tileWidthPx ) * fheroes2::tileWidthPx - _topLeftTileOffset.y + _windowROI.x );
+                                   ( tileOffset.y / fheroes2::tileWidthPx ) * fheroes2::tileWidthPx - _topLeftTileOffset.y + _windowROI.y );
 
     const fheroes2::Rect tileROI( tilePos.x, tilePos.y, fheroes2::tileWidthPx, fheroes2::tileWidthPx );
 

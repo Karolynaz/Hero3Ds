@@ -287,6 +287,9 @@ void Game::DialogPlayers( const PlayerColor color, std::string title, std::strin
 
 void Game::OpenCastleDialog( Castle & castle, bool updateFocus /* = true */, const bool renderBackgroundDialog /* = true */ )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSStandardLayout standardLayout;
+#endif
     // setup cursor
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 
@@ -384,6 +387,9 @@ void Game::OpenCastleDialog( Castle & castle, bool updateFocus /* = true */, con
 
 void Game::OpenHeroesDialog( Heroes & hero, bool updateFocus, const bool renderBackgroundDialog, const bool disableDismiss /* = false */ )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSStandardLayout standardLayout;
+#endif
     // setup cursor
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 
@@ -731,6 +737,13 @@ int Interface::AdventureMap::GetCursorTileIndex( int32_t dstIndex )
 
 fheroes2::GameMode Interface::AdventureMap::StartGame()
 {
+#if defined( TARGET_NINTENDO_3DS )
+    struct AdventureDisplayScope
+    {
+        AdventureDisplayScope() { fheroes2::set3DSAdventureLayout( true ); }
+        ~AdventureDisplayScope() { fheroes2::set3DSAdventureLayout( false ); }
+    } adventureDisplayScope;
+#endif
     Settings & conf = Settings::Get();
 
     const bool isAutoPlaytest{ conf.IsGameType( Game::TYPE_AUTO_PLAYTEST ) };
@@ -1140,7 +1153,14 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
             // Hotkeys
             if ( le.isAnyKeyPressed() ) {
                 // Adventure map control
+#if defined( TARGET_NINTENDO_3DS )
+                if ( HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL ) ) {
+                    EventResetHeroPath();
+                }
+                else if ( HotKeyPressEvent( Game::HotKeyEvent::GLOBAL_APP_QUIT ) ) {
+#else
                 if ( HotKeyPressEvent( Game::HotKeyEvent::GLOBAL_APP_QUIT ) || HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL ) ) {
+#endif
                     res = Game::processExitEvent();
                 }
                 else if ( HotKeyPressEvent( Game::HotKeyEvent::WORLD_END_TURN ) ) {
@@ -1324,7 +1344,11 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
                 _gameArea.QueueEventProcessing();
             }
             else {
-                if ( fheroes2::Cursor::isFocusActive() && conf.ScrollSpeed() != SCROLL_SPEED_NONE ) {
+                if ( fheroes2::Cursor::isFocusActive() && conf.ScrollSpeed() != SCROLL_SPEED_NONE
+#if defined( TARGET_NINTENDO_3DS )
+                     && !fheroes2::is3DSAdventureLayout()
+#endif
+                   ) {
                     int scrollDirection = SCROLL_NONE;
 
                     if ( isScrollLeft( le.getMouseCursorPos() ) ) {
@@ -1369,7 +1393,11 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
                     _statusPanel.QueueEventProcessing();
                 }
                 // Cursor is over the buttons panel
-                else if ( ( !isHiddenInterface || conf.ShowButtons() ) && le.isMouseCursorPosInArea( _buttonsPanel.GetRect() ) ) {
+                else if ( ( !isHiddenInterface || conf.ShowButtons() ) && ( le.isMouseCursorPosInArea( _buttonsPanel.GetRect() )
+#if defined( TARGET_NINTENDO_3DS )
+                         || le.isMouseCursorPosInArea( _buttonsPanel.endTurnArea() )
+#endif
+                       ) ) {
                     resetCursorIfNoNeedToScroll();
 
                     res = _buttonsPanel.queueEventProcessing();

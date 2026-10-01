@@ -55,12 +55,21 @@ namespace Interface
 
     void displayStandardPopupWindow( std::string text, const fheroes2::Rect & interfaceArea )
     {
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Scope3DSStandardLayout standardLayout;
+#endif
         const CursorRestorer cursorRestorer( false );
 
         const fheroes2::Sprite & windowImage = Assets::getImage( ICN::QWIKINFO, 0 );
 
         LocalEvent & le = LocalEvent::Get();
-        const fheroes2::Rect windowRoi = Interface::getPopupWindowPosition( le.getMouseCursorPos(), interfaceArea, { windowImage.width(), windowImage.height() } );
+        const fheroes2::Rect windowRoi = Interface::getPopupWindowPosition( le.getMouseCursorPos(),
+#if defined( TARGET_NINTENDO_3DS )
+                                                                        { 0, 0, fheroes2::Display::instance().width(), fheroes2::Display::instance().height() },
+#else
+                                                                        interfaceArea,
+#endif
+                                                                        { windowImage.width(), windowImage.height() } );
 
         fheroes2::Display & display = fheroes2::Display::instance();
         fheroes2::ImageRestorer restorer( display, windowRoi.x, windowRoi.y, windowRoi.width, windowRoi.height );
@@ -72,7 +81,13 @@ namespace Interface
 
         display.render( restorer.rect() );
 
-        while ( le.HandleEvents() && le.isMouseRightButtonPressed() ) {
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Point hoverPosition = le.getMouseCursorPos();
+        while ( le.HandleEvents() && le.getMouseCursorPos() == hoverPosition && !le.isAnyKeyPressed() && !le.isMouseLeftButtonPressed() )
+#else
+        while ( le.HandleEvents() && le.isMouseRightButtonPressed() )
+#endif
+        {
             // Do nothing and wait till the user releases the button.
         }
 

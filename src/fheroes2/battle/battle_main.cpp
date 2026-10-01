@@ -51,6 +51,7 @@
 #include "rand.h"
 #include "resource.h"
 #include "settings.h"
+#include "screen.h"
 #include "skill.h"
 #include "spell.h"
 #include "spell_storage.h"
@@ -290,6 +291,9 @@ namespace
 
 Battle::Result Battle::Loader( Army & attackingArmy, Army & defendingArmy, const int32_t tileIndex )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSStandardLayout standardLayout;
+#endif
     Result result;
 
     // Validate the arguments - check if battle should even load

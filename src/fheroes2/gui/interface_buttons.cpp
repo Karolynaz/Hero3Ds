@@ -101,6 +101,11 @@ void Interface::ButtonsPanel::SetPos( int32_t x, int32_t y )
 
     _buttonSystem.setPosition( _fileRect.x + _fileRect.width, y );
     _systemRect = _buttonSystem.area();
+#if defined( TARGET_NINTENDO_3DS )
+    // End turn is always available at the bottom right of the top screen.
+    _buttonEndTurn.setPosition( 356, 196 );
+    _endTurnRect = _buttonEndTurn.area();
+#endif
 }
 
 void Interface::ButtonsPanel::_redraw()

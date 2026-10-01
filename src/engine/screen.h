@@ -32,6 +32,22 @@
 
 namespace fheroes2
 {
+    // The adventure UI uses native pixel regions of the 640x480 game canvas.
+    void set3DSAdventureLayout( bool enabled );
+    bool is3DSAdventureLayout();
+    void push3DSStandardLayout();
+    void pop3DSStandardLayout();
+
+    // Restore the previous layout after a modal window, including nested dialogs.
+    class Scope3DSStandardLayout final
+    {
+    public:
+        Scope3DSStandardLayout() { push3DSStandardLayout(); }
+        ~Scope3DSStandardLayout() { pop3DSStandardLayout(); }
+        Scope3DSStandardLayout( const Scope3DSStandardLayout & ) = delete;
+        Scope3DSStandardLayout & operator=( const Scope3DSStandardLayout & ) = delete;
+    };
+
     class Cursor;
     class Display;
     struct RGB;

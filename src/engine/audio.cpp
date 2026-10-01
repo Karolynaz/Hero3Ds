@@ -1,3 +1,4 @@
+#if !defined( TARGET_NINTENDO_3DS )
 /***************************************************************************
  *   fheroes2: https://github.com/ihhub/fheroes2                           *
  *   Copyright (C) 2019 - 2026                                             *
@@ -1124,3 +1125,5 @@ void Music::setMidiTimidityCfg( const std::string & path )
     ERROR_LOG( "Failed to set the path to the timidity.cfg file to " << path << ". The error: operation not supported" )
 #endif
 }
+
+#endif

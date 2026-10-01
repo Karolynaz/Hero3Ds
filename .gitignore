@@ -110,3 +110,10 @@ fheroes2.data
 fheroes2.js
 fheroes2.wasm
 fheroes2.wasm.map
+
+# Native Nintendo 3DS build and Python test caches
+/platform/3ds/build/
+/platform/3ds/*.3dsx
+/platform/3ds/*.smdh
+/platform/3ds/*.elf
+/platform/3ds/**/__pycache__/

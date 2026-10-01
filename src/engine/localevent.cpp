@@ -31,6 +31,10 @@
 #include <set>
 #include <utility>
 
+#ifdef TARGET_NINTENDO_3DS
+#include <3ds.h>
+#include "input_3ds.h"
+#else
 // Managing compiler warnings for SDL headers
 #if defined( __GNUC__ )
 #pragma GCC diagnostic push
@@ -57,6 +61,8 @@
 // Managing compiler warnings for SDL headers
 #if defined( __GNUC__ )
 #pragma GCC diagnostic pop
+#endif
+
 #endif
 
 #include "audio.h"
@@ -274,6 +280,9 @@ namespace
     }
 }
 
+#ifdef TARGET_NINTENDO_3DS
+#include "localevent_3ds.h"
+#else
 namespace EventProcessing
 {
     std::set<uint32_t> eventTypeStatus;
@@ -1161,6 +1170,8 @@ namespace EventProcessing
         }
     };
 }
+
+#endif
 
 namespace fheroes2
 {

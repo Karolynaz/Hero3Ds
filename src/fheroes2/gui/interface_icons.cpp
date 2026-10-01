@@ -383,6 +383,9 @@ void Interface::IconsPanel::SetPos( int32_t x, int32_t y )
         iconsCount = count_h > 3 ? 8 : ( count_h < 3 ? 4 : 7 );
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    iconsCount = 4;
+#endif
     BorderWindow::SetPosition( x, y, 144, iconsCount * iconsCursorHeight );
 
     _heroesIcons.setIconsCount( iconsCount );
