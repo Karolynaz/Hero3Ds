@@ -1,6 +1,6 @@
 # Hero3DS — Nintendo 3DS portas
 
-Eksperimentinė tikro fheroes2 variklio integracija. Native `.3dsx` ir veikimas konsolėje dar nepatvirtinti. Ankstesnis `Makefile` kompiliuoja tik sintetinį hardware probe; žaidimui naudokite žemiau aprašytą CMake target'ą.
+Eksperimentinė tikro fheroes2 variklio integracija, orientuota į originalų Nintendo 3DS / 3DS XL / 2DS. Native `.3dsx` ir veikimas konsolėje dar nepatvirtinti. Ankstesnis `Makefile` kompiliuoja tik sintetinį hardware probe; žaidimui naudokite žemiau aprašytą CMake target'ą.
 
 ## Failų patikra
 
@@ -28,7 +28,7 @@ Užvedus žymeklį ant objekto, po 1,5 s parodoma originali objekto informacija.
 
 ## Kompiliavimas
 
-Reikia CMake ≥3.24 ir oficialios devkitPro aplinkos su devkitARM, libctru, 3ds-zlib, 3ds-cmake, devkitarm-cmake, 3ds-pkg-config bei 3dstools. SDL2 ir SDL2_mixer šiam native target'ui nereikia.
+Reikia CMake ≥3.24 ir oficialios devkitPro aplinkos su devkitARM, libctru, 3ds-zlib, 3ds-libvorbisidec, 3ds-cmake, devkitarm-cmake, 3ds-pkg-config bei 3dstools. SDL2 ir SDL2_mixer šiam native target'ui nereikia.
 
 Oficialūs šaltiniai: [devkitPro diegimas](https://devkitpro.org/wiki/Getting_Started), [3DS CMake toolchain](https://github.com/devkitPro/pacman-packages/blob/master/cmake/3ds/3DS.cmake), [pakavimo funkcijos](https://github.com/devkitPro/pacman-packages/blob/master/cmake/3ds/Nintendo3DS.cmake).
 
@@ -80,7 +80,7 @@ Be `--binary` įrankis paruošia duomenis, bet nesukuria žaidimo programos. Jis
 
 ## Dabartiniai apribojimai
 
-- Muzikos dekoderis dar neįgyvendintas: MUSIC galima kopijuoti ateičiai, bet šis backend jos negroja. WAV efektams naudojamas NDSP; jo veikimas priklauso nuo konsolės DSP aplinkos.
+- Įgyvendintas išorinių OGG takelių srautinis atkūrimas per Tremor/NDSP: trys 16 KiB PCM buferiai ir atskiras muzikos kanalas. Originalių MIDI takelių sintezė, MP3 ir FLAC atkūrimas nepalaikomi. Muzikos ir WAV efektų veikimą dar reikia išbandyti konsolėje; garsui reikalinga tinkama DSP aplinka. Senam 3DS bandymui galima konvertuoti muziką į 22050 Hz OGG; CPU/FPS vis tiek būtina išmatuoti.
 - Meniu, kovos, miestai ir standartiniai dialogai kol kas naudoja sumažintą originalų išdėstymą. Jų įskaitomumą ir valdymą būtina tikrinti konsolėje.
 - Išorinių PNG/BMP importas native backend nepalaikomas; originalūs AGG ir H2D ištekliai naudojami. Ekrano kopijos išsaugomos BMP formatu.
 - RAM, FPS, originalaus 3DS suderinamumas, suspend/resume ir visi žaidimo scenarijai dar neišbandyti hardware.
@@ -97,4 +97,8 @@ python3 platform/3ds/tools/check_host.py
 
 Praėjo trys C++ testų programos su AddressSanitizer/UndefinedBehaviorSanitizer ir du SD paruošimo testai. Visas native sąlyginis kodas (249 C++ failai + Smacker + zlib) sukompiliuotas ir sulinkuotas host aplinkoje naudojant laikinas libctru deklaracijas/testinius aprašus. Desktop sąlyginės pakeistų failų šakos taip pat patikrintos. Testinis host executable nėra žaidimui ar konsolėje naudojama programa.
 
-Pridėtas `.github/workflows/3ds.yml`: įkėlus pakeitimus į fork'ą, GitHub Actions gali paleisti portable testus ir tikrą devkitARM build'ą oficialiame [devkitPro Docker atvaizde](https://github.com/devkitPro/docker/blob/master/devkitarm/Dockerfile). Sėkmės atveju workflow pateiks `Hero3DS-experimental` artefaktą su `.3dsx` ir `.smdh`. Šioje sesijoje workflow nebuvo paleistas ir jo rezultatas dar nepatvirtintas.
+Pridėtas `.github/workflows/3ds.yml`: įkėlus pakeitimus į fork'ą, GitHub Actions gali paleisti portable testus ir tikrą devkitARM build'ą oficialiame [devkitPro Docker atvaizde](https://github.com/devkitPro/docker/blob/master/devkitarm/Dockerfile). Sėkmės atveju workflow pateiks `Hero3DS-experimental` artefaktą su `.3dsx` ir `.smdh`. Workflow jau paleistas porto šakoje. Native konfigūracijos ir newlib endian antraštės klaidos pataisytos; galutinio ARM build’o rezultatas dar laukiamas.
+
+GitHub darbo šaka: `port/nintendo-3ds`. Peržiūra: [draft PR #1](https://github.com/Karolynaz/Hero3Ds/pull/1). Main/master dar nepakeistas.
+
+Jeigu jūsų MUSIC failai yra MP3 ar FLAC, juos konvertuokite į OGG išlaikydami bazinius takelių pavadinimus. Pavyzdys su įdiegtu FFmpeg: `ffmpeg -i TRACK01.mp3 -ar 22050 -c:a libvorbis TRACK01.ogg`. Originalius failus išsaugokite.

@@ -15,6 +15,10 @@ on:
       - 'tests/3ds/**'
       - '.github/workflows/3ds.yml'
 
+concurrency:
+  group: 3ds-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -31,8 +35,8 @@ jobs:
     container: devkitpro/devkitarm:latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install CMake toolchain and zlib
-        run: dkp-pacman -S --needed --noconfirm 3ds-cmake devkitarm-cmake 3ds-pkg-config 3ds-zlib
+      - name: Install CMake toolchain and audio dependencies
+        run: dkp-pacman -S --needed --noconfirm 3ds-cmake devkitarm-cmake 3ds-pkg-config 3ds-zlib 3ds-libvorbisidec
       - name: Configure native game
         run: >-
           cmake -S platform/3ds -B build/3ds

@@ -67,6 +67,9 @@ def main():
     except (ValueError, OSError) as exc:
         parser.error(str(exc))
     print(f'Paruošta: {target} ({count} failai).')
+    music = find_child(args.game, 'MUSIC')
+    if music is not None and music.is_dir() and any(p.suffix.casefold() in ('.mp3', '.flac') for p in music.iterdir() if p.is_file()):
+        print('Pastaba: 3DS palaiko OGG muziką; MP3/FLAC takelius reikia konvertuoti į OGG, išlaikant jų pavadinimus.')
     if args.binary is None:
         print('Programa nenukopijuota: dar reikės sukompiliuoto fheroes2.3dsx.')
 
