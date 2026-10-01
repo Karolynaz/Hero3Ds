@@ -102,3 +102,13 @@ Pridėtas `.github/workflows/3ds.yml`: įkėlus pakeitimus į fork'ą, GitHub Ac
 GitHub darbo šaka: `port/nintendo-3ds`. Peržiūra: [draft PR #1](https://github.com/Karolynaz/Hero3Ds/pull/1). Main/master dar nepakeistas.
 
 Jeigu jūsų MUSIC failai yra MP3 ar FLAC, juos konvertuokite į OGG išlaikydami bazinius takelių pavadinimus. Pavyzdys su įdiegtu FFmpeg: `ffmpeg -i TRACK01.mp3 -ar 22050 -c:a libvorbis TRACK01.ogg`. Originalius failus išsaugokite.
+
+OGG dekoderio gyvavimo ciklo ir buferių testams (reikia `clang`, `clang++`, `ffmpeg` ir interneto):
+
+```sh
+python3 platform/3ds/tools/check_audio_host.py
+```
+
+Įrankis laikiname kataloge atsisiunčia konkrečių commit'ų Tremor/libogg šaltinius, sukuria sintetinį OGG takelį ir tikrina tikrą mūsų audio kodą su imituotu NDSP. Penkis kartus praėjo ASan/UBSan patikros: stop/join, atkūrimas nuo pozicijos, EOF, garsumas, mute, klaidų valymas ir maksimalus 48 KiB PCM buferis. Trečiosios šalies Tremor fixed-point shift diagnostika išjungta tik jo C šaltiniams; mūsų C++ kodui UBSan paliktas pilnas.
+
+Jeigu konsolėje vaizdas veikia, bet nėra garso, libctru NDSP ieško konsolės DSP firmware failo SD kelyje `/3ds/dspfirm.cdc`. Žr. [oficialų libctru kodą](https://github.com/devkitPro/libctru/blob/master/libctru/source/ndsp/ndsp.c). Šis failas nepateikiamas kartu su portu.

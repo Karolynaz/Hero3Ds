@@ -30,6 +30,13 @@ jobs:
       - name: Input, framebuffer and SD staging tests
         run: python3 platform/3ds/tools/check_host.py
 
+      - name: Install real-decoder host test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ffmpeg
+      - name: OGG lifecycle and memory-bound tests
+        run: python3 platform/3ds/tools/check_audio_host.py
+
   native-build:
     runs-on: ubuntu-latest
     container: devkitpro/devkitarm:latest
