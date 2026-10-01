@@ -60,6 +60,7 @@
 
 #else
 #include <3ds.h>
+
 #include "framebuffer_3ds.h"
 #endif
 
@@ -74,7 +75,7 @@
 
 namespace
 {
- #if !defined( TARGET_NINTENDO_3DS )
+#if !defined( TARGET_NINTENDO_3DS )
     // Returns nearest screen supported resolution
     fheroes2::ResolutionInfo GetNearestResolution( fheroes2::ResolutionInfo resolutionInfo, const std::vector<fheroes2::ResolutionInfo> & resolutions )
     {
@@ -1461,10 +1462,23 @@ namespace fheroes2
     static bool adventure3DSLayout = false;
     static unsigned standard3DSLayoutDepth = 0;
 
-    void set3DSAdventureLayout( const bool enabled ) { adventure3DSLayout = enabled; }
-    bool is3DSAdventureLayout() { return adventure3DSLayout && standard3DSLayoutDepth == 0; }
-    void push3DSStandardLayout() { ++standard3DSLayoutDepth; }
-    void pop3DSStandardLayout() { assert( standard3DSLayoutDepth > 0 ); --standard3DSLayoutDepth; }
+    void set3DSAdventureLayout( const bool enabled )
+    {
+        adventure3DSLayout = enabled;
+    }
+    bool is3DSAdventureLayout()
+    {
+        return adventure3DSLayout && standard3DSLayoutDepth == 0;
+    }
+    void push3DSStandardLayout()
+    {
+        ++standard3DSLayoutDepth;
+    }
+    void pop3DSStandardLayout()
+    {
+        assert( standard3DSLayoutDepth > 0 );
+        --standard3DSLayoutDepth;
+    }
 
     void BaseRenderEngine::linkRenderSurface( uint8_t * surface ) const
     {

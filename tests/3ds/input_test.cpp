@@ -1,7 +1,28 @@
+/***************************************************************************
+ *   fheroes2: https://github.com/ihhub/fheroes2                           *
+ *   Copyright (C) 2026                                                    *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+
 // SPDX-License-Identifier: GPL-2.0-or-later
-#include "input_3ds.h"
 #include <cassert>
 #include <cmath>
+
+#include "input_3ds.h"
 
 int main()
 {
@@ -18,8 +39,10 @@ int main()
     assert( cursorAxis( 100, 156, 10, 400 ) == 115 );
     double fast = 100;
     double slow = 100;
-    for ( int i = 0; i < 60; ++i ) fast = cursorAxis( fast, 80, 1.0 / 60, 1000 );
-    for ( int i = 0; i < 30; ++i ) slow = cursorAxis( slow, 80, 1.0 / 30, 1000 );
+    for ( int i = 0; i < 60; ++i )
+        fast = cursorAxis( fast, 80, 1.0 / 60, 1000 );
+    for ( int i = 0; i < 30; ++i )
+        slow = cursorAxis( slow, 80, 1.0 / 30, 1000 );
     assert( std::abs( fast - slow ) < 1e-9 );
     assert( cursorAxis( 0, 21, 0.016, 400 ) > 0 );
 }

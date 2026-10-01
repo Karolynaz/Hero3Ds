@@ -42,8 +42,14 @@ namespace fheroes2
     class Scope3DSStandardLayout final
     {
     public:
-        Scope3DSStandardLayout() { push3DSStandardLayout(); }
-        ~Scope3DSStandardLayout() { pop3DSStandardLayout(); }
+        Scope3DSStandardLayout()
+        {
+            push3DSStandardLayout();
+        }
+        ~Scope3DSStandardLayout()
+        {
+            pop3DSStandardLayout();
+        }
         Scope3DSStandardLayout( const Scope3DSStandardLayout & ) = delete;
         Scope3DSStandardLayout & operator=( const Scope3DSStandardLayout & ) = delete;
     };

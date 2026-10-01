@@ -1123,8 +1123,7 @@ void Interface::GameArea::QueueEventProcessing()
         _hoverShown = false;
         _hoverTime.reset();
     }
-    if ( Maps::isValidAbsIndex( index ) && !_hoverShown && _hoverTime.getMs() >= 1500
-         && MP2::isInGameActionObject( world.getTile( index ).getMainObjectType() ) ) {
+    if ( Maps::isValidAbsIndex( index ) && !_hoverShown && _hoverTime.getMs() >= 1500 && MP2::isInGameActionObject( world.getTile( index ).getMainObjectType() ) ) {
         _hoverShown = true;
         _interface.mouseCursorAreaPressRight( index );
         _hoverTime.reset();

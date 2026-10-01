@@ -1,4 +1,3 @@
-#if !defined( TARGET_NINTENDO_3DS )
 /***************************************************************************
  *   fheroes2: https://github.com/ihhub/fheroes2                           *
  *   Copyright (C) 2019 - 2026                                             *
@@ -21,6 +20,8 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
+
+#if !defined( TARGET_NINTENDO_3DS )
 
 #include "audio.h"
 

@@ -1,7 +1,28 @@
+/***************************************************************************
+ *   fheroes2: https://github.com/ihhub/fheroes2                           *
+ *   Copyright (C) 2026                                                    *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+ ***************************************************************************/
+
 // SPDX-License-Identifier: GPL-2.0-or-later
-#include "../../../src/engine/framebuffer_3ds.h"
 #include <cassert>
 #include <vector>
+
+#include "../../../src/engine/framebuffer_3ds.h"
 
 namespace
 {
@@ -15,11 +36,15 @@ int main()
 {
     using namespace fheroes2::threeDS;
     std::vector<uint8_t> image( 640 * 480, 1 );
-    for ( int y = 240; y < 480; ++y ) std::fill( image.begin() + y * 640, image.begin() + ( y + 1 ) * 640, 2 );
+    for ( int y = 240; y < 480; ++y )
+        std::fill( image.begin() + y * 640, image.begin() + ( y + 1 ) * 640, 2 );
     image[239 * 640 + 399] = 3;
     image[479 * 640 + 319] = 4;
     std::array<uint32_t, 256> palette{};
-    palette[1] = 0x123456; palette[2] = 0xABCDEF; palette[3] = 0x010203; palette[4] = 0x987654;
+    palette[1] = 0x123456;
+    palette[2] = 0xABCDEF;
+    palette[3] = 0x010203;
+    palette[4] = 0x987654;
     std::vector<uint8_t> top( topFramebufferBytes + 2, 0xA5 ), bottom( bottomFramebufferBytes + 2, 0xA5 );
     const auto render = [&]( const uint8_t * input, int width, int height, bool adventure ) {
         renderFramebuffers( input, width, height, palette, top.data() + 1, bottom.data() + 1, adventure );

@@ -69,23 +69,43 @@ namespace
 #if defined( TARGET_NINTENDO_3DS )
     bool SaveImage( const fheroes2::Image & image, std::string path )
     {
-        if ( path.size() >= 4 && path.substr( path.size() - 4 ) == ".png" ) path.replace( path.size() - 3, 3, "bmp" );
+        if ( path.size() >= 4 && path.substr( path.size() - 4 ) == ".png" )
+            path.replace( path.size() - 3, 3, "bmp" );
         std::ofstream out( path, std::ios::binary );
-        if ( !out ) return false;
+        if ( !out )
+            return false;
         const uint32_t stride = ( static_cast<uint32_t>( image.width() ) * 3 + 3 ) & ~3U;
         const auto word = [&out]( uint32_t value, int bytes ) {
-            for ( int i = 0; i < bytes; ++i ) { out.put( static_cast<char>( value & 255 ) ); value >>= 8; }
+            for ( int i = 0; i < bytes; ++i ) {
+                out.put( static_cast<char>( value & 255 ) );
+                value >>= 8;
+            }
         };
-        out.write( "BM", 2 ); word( 54 + stride * image.height(), 4 ); word( 0, 4 ); word( 54, 4 );
-        word( 40, 4 ); word( image.width(), 4 ); word( image.height(), 4 ); word( 1, 2 ); word( 24, 2 );
-        word( 0, 4 ); word( stride * image.height(), 4 ); word( 0, 4 ); word( 0, 4 ); word( 0, 4 ); word( 0, 4 );
+        out.write( "BM", 2 );
+        word( 54 + stride * image.height(), 4 );
+        word( 0, 4 );
+        word( 54, 4 );
+        word( 40, 4 );
+        word( image.width(), 4 );
+        word( image.height(), 4 );
+        word( 1, 2 );
+        word( 24, 2 );
+        word( 0, 4 );
+        word( stride * image.height(), 4 );
+        word( 0, 4 );
+        word( 0, 4 );
+        word( 0, 4 );
+        word( 0, 4 );
         const auto palette = fheroes2::getNormalizedRGBGamePalette();
         for ( int y = image.height() - 1; y >= 0; --y ) {
             for ( int x = 0; x < image.width(); ++x ) {
                 const auto & color = palette[image.image()[y * image.width() + x]];
-                out.put( static_cast<char>( color.b ) ); out.put( static_cast<char>( color.g ) ); out.put( static_cast<char>( color.r ) );
+                out.put( static_cast<char>( color.b ) );
+                out.put( static_cast<char>( color.g ) );
+                out.put( static_cast<char>( color.r ) );
             }
-            for ( uint32_t padding = image.width() * 3; padding < stride; ++padding ) out.put( 0 );
+            for ( uint32_t padding = image.width() * 3; padding < stride; ++padding )
+                out.put( 0 );
         }
         return out.good();
     }

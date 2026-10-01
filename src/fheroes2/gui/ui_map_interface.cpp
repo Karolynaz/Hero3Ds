@@ -65,11 +65,11 @@ namespace Interface
         LocalEvent & le = LocalEvent::Get();
         const fheroes2::Rect windowRoi = Interface::getPopupWindowPosition( le.getMouseCursorPos(),
 #if defined( TARGET_NINTENDO_3DS )
-                                                                        { 0, 0, fheroes2::Display::instance().width(), fheroes2::Display::instance().height() },
+                                                                            { 0, 0, fheroes2::Display::instance().width(), fheroes2::Display::instance().height() },
 #else
-                                                                        interfaceArea,
+                                                                            interfaceArea,
 #endif
-                                                                        { windowImage.width(), windowImage.height() } );
+                                                                            { windowImage.width(), windowImage.height() } );
 
         fheroes2::Display & display = fheroes2::Display::instance();
         fheroes2::ImageRestorer restorer( display, windowRoi.x, windowRoi.y, windowRoi.width, windowRoi.height );

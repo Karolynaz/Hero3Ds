@@ -33,6 +33,7 @@
 
 #ifdef TARGET_NINTENDO_3DS
 #include <3ds.h>
+
 #include "input_3ds.h"
 #else
 // Managing compiler warnings for SDL headers

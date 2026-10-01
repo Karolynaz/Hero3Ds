@@ -740,8 +740,14 @@ fheroes2::GameMode Interface::AdventureMap::StartGame()
 #if defined( TARGET_NINTENDO_3DS )
     struct AdventureDisplayScope
     {
-        AdventureDisplayScope() { fheroes2::set3DSAdventureLayout( true ); }
-        ~AdventureDisplayScope() { fheroes2::set3DSAdventureLayout( false ); }
+        AdventureDisplayScope()
+        {
+            fheroes2::set3DSAdventureLayout( true );
+        }
+        ~AdventureDisplayScope()
+        {
+            fheroes2::set3DSAdventureLayout( false );
+        }
     } adventureDisplayScope;
 #endif
     Settings & conf = Settings::Get();
@@ -1348,7 +1354,7 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
 #if defined( TARGET_NINTENDO_3DS )
                      && !fheroes2::is3DSAdventureLayout()
 #endif
-                   ) {
+                ) {
                     int scrollDirection = SCROLL_NONE;
 
                     if ( isScrollLeft( le.getMouseCursorPos() ) ) {
@@ -1393,11 +1399,12 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
                     _statusPanel.QueueEventProcessing();
                 }
                 // Cursor is over the buttons panel
-                else if ( ( !isHiddenInterface || conf.ShowButtons() ) && ( le.isMouseCursorPosInArea( _buttonsPanel.GetRect() )
+                else if ( ( !isHiddenInterface || conf.ShowButtons() )
+                          && ( le.isMouseCursorPosInArea( _buttonsPanel.GetRect() )
 #if defined( TARGET_NINTENDO_3DS )
-                         || le.isMouseCursorPosInArea( _buttonsPanel.endTurnArea() )
+                               || le.isMouseCursorPosInArea( _buttonsPanel.endTurnArea() )
 #endif
-                       ) ) {
+                                   ) ) {
                     resetCursorIfNoNeedToScroll();
 
                     res = _buttonsPanel.queueEventProcessing();

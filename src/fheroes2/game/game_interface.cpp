@@ -35,22 +35,22 @@
 #include "game_hotkeys.h"
 #include "icn.h"
 #include "image.h"
-#include "kingdom.h"
-#include "resource.h"
-#include "ui_text.h"
 #include "interface_border.h"
 #include "interface_gamearea.h"
 #include "interface_radar.h"
 #include "interface_status.h"
+#include "kingdom.h"
 #include "localevent.h"
 #include "maps.h"
 #include "math_base.h"
+#include "resource.h"
 #include "screen.h"
 #include "settings.h"
+#include "tools.h"
 #include "ui_button.h"
 #include "ui_constants.h"
+#include "ui_text.h"
 #include "ui_tool.h"
-#include "tools.h"
 #include "world.h"
 
 Interface::AdventureMap::AdventureMap()
@@ -192,7 +192,7 @@ void Interface::AdventureMap::redraw( const uint32_t force )
 #if defined( TARGET_NINTENDO_3DS )
          || ( combinedRedraw & REDRAW_GAMEAREA )
 #endif
-       ) {
+    ) {
         _buttonsPanel._redraw();
     }
 
