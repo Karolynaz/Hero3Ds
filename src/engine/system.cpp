@@ -289,7 +289,7 @@ bool System::isTouchInputAvailable()
 
 bool System::isVirtualKeyboardSupported()
 {
-#if defined( ANDROID ) || defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_SWITCH ) || defined( __IPHONEOS__ )
+#if defined( TARGET_NINTENDO_3DS ) || defined( ANDROID ) || defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_SWITCH ) || defined( __IPHONEOS__ )
     return true;
 #else
     return false;
