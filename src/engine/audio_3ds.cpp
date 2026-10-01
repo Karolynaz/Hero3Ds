@@ -195,7 +195,7 @@ namespace
                 int holes = 0;
                 while ( bytes < musicBufferBytes && !stream.stop.load() ) {
                     int bitstream = 0;
-                    const long decoded = ov_read( &stream.decoder, static_cast<char *>( buffer.wave.data_vaddr ) + bytes,
+                    const long decoded = ov_read( &stream.decoder, reinterpret_cast<char *>( buffer.wave.data_pcm16 ) + bytes,
                                                   static_cast<int>( musicBufferBytes - bytes ), &bitstream );
                     if ( decoded > 0 ) {
                         const auto * info = ov_info( &stream.decoder, bitstream );
