@@ -10,8 +10,8 @@ Dabar integruojamas tikras fheroes2 variklis: native libctru vaizdas, valdymas, 
 `platform/3ds/Makefile` ir `3ds-initial.patch` yra ankstesnio sintetinio bandymo artefaktai; naujam žaidimui naudokite `platform/3ds/CMakeLists.txt`. Seno
 patch'o nebetaikykite.
 
-Visi fork'o 963 tracked failai patikrinti pagal GitHub commit `5affbfbba6bcc38eedbfa91cc0e4494cda2c3eb3`. Projekto pakeitimai dar nepatikrinti devkitARM ir
-tikroje konsolėje. Išorinių OGG takelių srautinis atkūrimas įgyvendintas, bet dar laukia ARM/hardware patikros; MIDI/MP3/FLAC nepalaikomi.
+Visi fork'o 963 tracked failai patikrinti pagal GitHub commit `5affbfbba6bcc38eedbfa91cc0e4494cda2c3eb3`. Tikras devkitARM build’as ir pakavimas praėjo.
+Veikimas tikroje konsolėje dar nepatikrintas. OGG srautinis atkūrimas praėjo host testus; MIDI/MP3/FLAC nepalaikomi.
 
 Kitas būtinas etapas: native cross-build, tada Homebrew Launcher patikra su originaliais žaidimo duomenimis pagal README. Host patikros ir hardware probe nėra
 įrodymas, kad visas žaidimas veikia.

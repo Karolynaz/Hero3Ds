@@ -15,7 +15,8 @@ pakeitimai nedaromi.
 ## Ekranai ir valdymas
 
 Nuotykių žemėlapyje viršuje naudojama 400×240 sritis, apačioje — 320×240. Variklio 640×480 loginis paviršius leidžia išlaikyti esamus meniu, kovas ir miestus.
-Nuotykių režimu atskirai pateikiamos native ekranų sritys; standartiniai vaizdai sumažinami į ekraną.
+Nuotykių režimu atskirai pateikiamos native ekranų sritys; standartiniai vaizdai sumažinami į viršutinį ekraną.
+Dialogo metu apačioje išlieka nuotykių skydelis. Meniu, dialogai ir kovos valdomi Circle Pad bei A/B; jų metu lietimas išjungtas.
 
 | Valdiklis | Veiksmas |
 | --- | --- |
@@ -115,8 +116,8 @@ patikrintos. Testinis host executable nėra žaidimui ar konsolėje naudojama pr
 
 Pridėtas `.github/workflows/3ds.yml`: įkėlus pakeitimus į fork'ą, GitHub Actions gali paleisti portable testus ir tikrą devkitARM build'ą oficialiame [devkitPro
 Docker atvaizde](https://github.com/devkitPro/docker/blob/master/devkitarm/Dockerfile). Sėkmės atveju workflow pateiks `Hero3DS-experimental` artefaktą su
-`.3dsx` ir `.smdh`. Workflow jau paleistas porto šakoje. Native konfigūracijos ir newlib endian antraštės klaidos pataisytos; galutinio ARM build’o rezultatas
-dar laukiamas.
+`.3dsx` ir `.smdh`. Tikras devkitARM build’as, `.3dsx`/`.smdh` pakavimas ir portable bei audio testai
+praėjo [CI paleidime](https://github.com/Karolynaz/Hero3Ds/actions/runs/36928840456). Veikimas tikroje konsolėje dar nepatikrintas.
 
 GitHub darbo šaka: `port/nintendo-3ds`. Peržiūra: [draft PR #1](https://github.com/Karolynaz/Hero3Ds/pull/1). Main/master dar nepakeistas.
 

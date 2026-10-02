@@ -58,7 +58,32 @@ int main()
     render( image.data(), 640, 480, false );
     assert( pixel( top, 39, 0 ) == 0 && pixel( top, 360, 239 ) == 0 );
     assert( pixel( top, 40, 0 ) == 0x112233 && pixel( top, 359, 239 ) == 0xABCDEF );
-    assert( pixel( bottom, 0, 0 ) == 0x112233 && pixel( bottom, 319, 239 ) == 0xABCDEF );
+    // Menus and modal content must not be duplicated onto the lower display.
+    assert( pixel( bottom, 0, 0 ) == 0 && pixel( bottom, 319, 239 ) == 0 );
+
+    // Reproduce an adventure canvas whose hidden area retains a red main menu.
+    // Opening a dialog must use only the visible map for its background and
+    // preserve the native lower dashboard independently of dialog content.
+    std::vector<uint8_t> adventureImage( 640 * 480, 5 );
+    palette[5] = 0xFF0000;
+    for ( int y = 0; y < 240; ++y )
+        std::fill( adventureImage.begin() + y * 640, adventureImage.begin() + y * 640 + 400, 1 );
+    for ( int y = 240; y < 480; ++y )
+        std::fill( adventureImage.begin() + y * 640, adventureImage.begin() + y * 640 + 320, 2 );
+    std::vector<uint8_t> modal( adventureImage.size() );
+    prepareModalCanvas( adventureImage.data(), modal.data(), 640, 480 );
+    assert( std::all_of( modal.begin(), modal.end(), []( uint8_t value ) { return value == 1; } ) );
+    // Dialog pixels may overwrite the native dashboard coordinates on the
+    // shared canvas; the snapshot must still be what the lower screen shows.
+    modal[300 * 640 + 100] = 3;
+    renderFramebuffers( modal.data(), 640, 480, palette, top.data() + 1, bottom.data() + 1, false, adventureImage.data() );
+    assert( pixel( top, 90, 150 ) == 0x010203 );
+    assert( pixel( bottom, 100, 60 ) == 0xABCDEF );
+    assert( pixel( top, 359, 239 ) == 0x112233 );
+    // Closing the dialog restores the original native split rather than
+    // leaving the enlarged background or dialog pixels on either screen.
+    render( adventureImage.data(), 640, 480, true );
+    assert( pixel( top, 100, 60 ) == 0x112233 && pixel( bottom, 100, 60 ) == 0xABCDEF );
     const uint8_t tiny[] = { 3, 4, 2, 1 };
     render( tiny, 2, 2, true );
     assert( pixel( top, 1, 0 ) == 0x987654 && pixel( top, 2, 0 ) == 0 && pixel( bottom, 0, 0 ) == 0 );

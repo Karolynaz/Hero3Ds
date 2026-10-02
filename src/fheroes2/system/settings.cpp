@@ -124,8 +124,10 @@ Settings::Settings()
         // Due to the nature of handheld devices having small screens in general it is good to make fullscreen option by default.
         _gameOptions.SetModes( GAME_FULLSCREEN );
 
-        // Adventure Map scrolling is disabled by default for handheld devices as it is very hard to navigate on small screens. Use drag and move logic.
+        // Touch-only handhelds use drag scrolling. Nintendo 3DS keeps camera scrolling enabled for the D-pad.
+#if !defined( TARGET_NINTENDO_3DS )
         scroll_speed = SCROLL_SPEED_NONE;
+#endif
 
         // Smooth scrolling (inertia) feels natural on touch devices and is enabled by default.
         _isMapSmoothScrollingEnabled = true;
@@ -937,6 +939,13 @@ void Settings::setCursorSoftwareEmulation( const bool enable )
 void Settings::SetScrollSpeed( int speed )
 {
     scroll_speed = std::clamp( speed, static_cast<int>( SCROLL_SPEED_NONE ), static_cast<int>( SCROLL_SPEED_VERY_FAST ) );
+#if defined( TARGET_NINTENDO_3DS )
+    // The handheld touch default (including an existing saved configuration)
+    // must not disable the physical D-pad camera controls on Nintendo 3DS.
+    if ( scroll_speed == SCROLL_SPEED_NONE ) {
+        scroll_speed = SCROLL_SPEED_NORMAL;
+    }
+#endif
 }
 
 bool Settings::isPriceOfLoyaltySupported() const

@@ -86,7 +86,8 @@ protected:
             const auto & color = currentRGBPalette[_palette[i]];
             colors[i] = ( uint32_t( color.r ) << 16 ) | ( uint32_t( color.g ) << 8 ) | color.b;
         }
-        fheroes2::threeDS::renderFramebuffers( display.image(), display.width(), display.height(), colors, top, bottom, fheroes2::is3DSAdventureLayout() );
+        fheroes2::threeDS::renderFramebuffers( display.image(), display.width(), display.height(), colors, top, bottom, fheroes2::is3DSAdventureLayout(),
+                                               fheroes2::get3DSAdventureSnapshot() );
         gfxFlushBuffers();
         gfxSwapBuffers();
         if ( _vsync )

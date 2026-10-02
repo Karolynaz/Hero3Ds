@@ -37,6 +37,7 @@ namespace fheroes2
     bool is3DSAdventureLayout();
     void push3DSStandardLayout();
     void pop3DSStandardLayout();
+    const uint8_t * get3DSAdventureSnapshot();
 
     // Restore the previous layout after a modal window, including nested dialogs.
     class Scope3DSStandardLayout final

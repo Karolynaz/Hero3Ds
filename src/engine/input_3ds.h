@@ -28,6 +28,55 @@ namespace fheroes2
 {
     namespace input3DS
     {
+        // A touch crossing into an inactive screen is cancelled, never released
+        // as a click in the newly opened dialog. It needs a fresh contact.
+        class TouchGate
+        {
+        public:
+            enum class Transition
+            {
+                None,
+                Press,
+                Release,
+                Cancel
+            };
+
+            Transition update( const bool enabled, const bool held, const bool down, const bool up )
+            {
+                if ( !enabled ) {
+                    _blocked = held;
+                    if ( _active ) {
+                        _active = false;
+                        return Transition::Cancel;
+                    }
+                    return Transition::None;
+                }
+                if ( _blocked ) {
+                    if ( !held )
+                        _blocked = false;
+                    return Transition::None;
+                }
+                if ( _active && up ) {
+                    _active = false;
+                    return Transition::Release;
+                }
+                if ( down ) {
+                    _active = true;
+                    return Transition::Press;
+                }
+                return Transition::None;
+            }
+
+            bool active() const
+            {
+                return _active;
+            }
+
+        private:
+            bool _active{ false };
+            bool _blocked{ false };
+        };
+
         // Circle Pad samples nominally range from -156 to 156. Preserve a
         // fractional cursor position so a lightly tilted pad still moves.
         inline double cursorAxis( const double position, const int axis, const double seconds, const int extent )

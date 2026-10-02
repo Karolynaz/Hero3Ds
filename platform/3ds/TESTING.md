@@ -14,16 +14,19 @@ Reikalinga konsolė, galinti paleisti Homebrew Launcher, SD kortelė ir jūsų o
 
 Automatinis failų paruošimas aprašytas `README.md`; esamų išsaugojimų nekeiskite.
 
+Azahar: paketo `3ds` katalogą padėkite į emuliatoriaus `sdmc`, o `fheroes2.3dsx` atverkite per File → Load File.
+Meniu ir dialogai rodomi tik viršuje ir valdomi Circle Pad bei A/B. Lietimas veikia nuotykių žemėlapio apatiniame ekrane.
+
 ## Bandymo seka
 
-* Homebrew Launcher paleiskite **Heroes II 3DS**. Patikrinkite, ar atsiranda meniu ir ar lietimas bei A/B veikia. Jei trūksta duomenų, pirmiausia patikrinkite
+* Homebrew Launcher paleiskite **Heroes II 3DS**. Patikrinkite, ar atsiranda meniu ir ar Circle Pad bei A/B veikia. Jei trūksta duomenų, pirmiausia patikrinkite
   `data/HEROES2.AGG` ir `files/data/resurrection.h2d` vietas.
 * Pradėkite mažą single-player žemėlapį. Viršuje turi būti žemėlapis, resursai ir ėjimo pabaigos mygtukas; apačioje — minižemėlapis, portretai ir data.
 * Circle Pad judinkite žymeklį, D-pad slinkite kamerą. A pasirinkite kelio tikslą, B panaikinkite kelią. Pakartotinai pasirinkę patikrinkite realų herojaus
   judėjimą.
 * Užveskite žymeklį ant pastato ar priešo ir palaukite 1,5 s. Informaciją turi uždaryti judėjimas arba A/B.
 * Lietimu pasirinkite kitą herojų, miestą ir minižemėlapio vietą. Po lietimo judindami Circle Pad patikrinkite, kad žymeklis grįžta į viršutinį ekraną.
-* Atidarykite miestą, herojaus langą ir kovą. Jie kol kas turi sumažintą originalų išdėstymą. Patikrinkite, kad dialoguose veikia A/B ir lietimas, o uždarius
+* Atidarykite miestą, herojaus langą ir kovą. Jie kol kas turi sumažintą originalų išdėstymą. Patikrinkite, kad dialoguose veikia Circle Pad ir A/B, o uždarius
   grįžta dviejų ekranų žemėlapis.
 * Išsaugokite žaidimą. Ekraninėje klaviatūroje įveskite pavadinimą, išeikite ir vėl paleidę įkelkite išsaugojimą.
 * Baikite ėjimą ir patikrinkite dienos bei resursų pasikeitimą. Su OGG muzika patikrinkite, ar herojaus/miesto/kitos muzikos pakeitimas neužkabina žaidimo.

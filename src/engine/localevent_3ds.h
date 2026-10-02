@@ -95,18 +95,27 @@ namespace EventProcessing
                 }
                 events._emulatedPointerPos = { x, y };
             }
-            if ( held & KEY_TOUCH || up & KEY_TOUCH ) {
-                if ( held & KEY_TOUCH ) {
-                    touchPosition touch{};
-                    hidTouchRead( &touch );
-                    _touch = fheroes2::is3DSAdventureLayout() ? fheroes2::Point( touch.px, touch.py + 240 )
-                                                              : fheroes2::Point( touch.px * display.width() / 320, touch.py * display.height() / 240 );
-                    events.onMouseMotionEvent( _touch );
+            const auto touchTransition = _touchGate.update( fheroes2::is3DSAdventureLayout(), held & KEY_TOUCH, down & KEY_TOUCH, up & KEY_TOUCH );
+            if ( _touchGate.active() && ( held & KEY_TOUCH ) ) {
+                touchPosition touch{};
+                hidTouchRead( &touch );
+                _touch = fheroes2::Point( touch.px, touch.py + 240 );
+                events.onMouseMotionEvent( _touch );
+            }
+            using TouchTransition = fheroes2::input3DS::TouchGate::Transition;
+            if ( touchTransition == TouchTransition::Press ) {
+                events.onMouseButtonEvent( true, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, _touch );
+            }
+            else if ( touchTransition == TouchTransition::Release ) {
+                events.onMouseButtonEvent( false, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, _touch );
+            }
+            else if ( touchTransition == TouchTransition::Cancel ) {
+                // Do not synthesize a click on modal controls when the lower
+                // screen becomes a frozen dashboard (or a blank screen).
+                events.resetStates( LocalEvent::MOUSE_PRESSED | LocalEvent::MOUSE_RELEASED | LocalEvent::DRAG_ONGOING );
+                if ( held & KEY_A ) {
+                    events.onMouseButtonEvent( true, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, events.getMouseCursorPos() );
                 }
-                if ( down & KEY_TOUCH )
-                    events.onMouseButtonEvent( true, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, _touch );
-                if ( up & KEY_TOUCH )
-                    events.onMouseButtonEvent( false, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, _touch );
             }
             if ( down & KEY_A )
                 events.onMouseButtonEvent( true, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, events.getMouseCursorPos() );
@@ -143,6 +152,7 @@ namespace EventProcessing
     private:
         fheroes2::Time _timer;
         fheroes2::Point _touch;
+        fheroes2::input3DS::TouchGate _touchGate;
         fheroes2::Key _previousKey{ fheroes2::Key::NONE };
     };
 }

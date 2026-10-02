@@ -26,6 +26,23 @@
 
 int main()
 {
+    using fheroes2::input3DS::TouchGate;
+    using Transition = TouchGate::Transition;
+    TouchGate touch;
+    assert( touch.update( true, true, true, false ) == Transition::Press );
+    assert( touch.active() );
+    assert( touch.update( false, true, false, false ) == Transition::Cancel );
+    assert( !touch.active() );
+    // Returning from a modal while still touching cannot select the dashboard.
+    assert( touch.update( true, true, false, false ) == Transition::None );
+    assert( !touch.active() );
+    assert( touch.update( true, false, false, true ) == Transition::None );
+    assert( touch.update( true, true, true, false ) == Transition::Press );
+    assert( touch.update( true, false, false, true ) == Transition::Release );
+    // Main menu/battle contacts stay ignored until released in adventure.
+    assert( touch.update( false, true, true, false ) == Transition::None );
+    assert( touch.update( true, true, false, false ) == Transition::None );
+    assert( touch.update( true, false, false, true ) == Transition::None );
     using fheroes2::input3DS::cursorAxis;
     assert( cursorAxis( 400, 0, 0.016, 240 ) == 239 );
     assert( cursorAxis( 42, 0, 0.016, 0 ) == 0 );
