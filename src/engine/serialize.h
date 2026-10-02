@@ -70,7 +70,7 @@
 #define be32toh( x ) OSSwapBigToHostInt32( x )
 #define le32toh( x ) OSSwapLittleToHostInt32( x )
 
-#elif defined( TARGET_PS_VITA )
+#elif defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_3DS )
 #define BIG_ENDIAN 4321
 #define LITTLE_ENDIAN 1234
 #define BYTE_ORDER LITTLE_ENDIAN

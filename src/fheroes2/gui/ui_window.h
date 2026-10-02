@@ -1,6 +1,6 @@
 /***************************************************************************
  *   fheroes2: https://github.com/ihhub/fheroes2                           *
- *   Copyright (C) 2021 - 2025                                             *
+ *   Copyright (C) 2021 - 2026                                             *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -109,6 +109,9 @@ namespace fheroes2
         }
 
     private:
+#if defined( TARGET_NINTENDO_3DS )
+        Scope3DSStandardLayout _standard3DSLayout;
+#endif
         Image & _output;
         const Rect _activeArea;
         const Rect _windowArea;

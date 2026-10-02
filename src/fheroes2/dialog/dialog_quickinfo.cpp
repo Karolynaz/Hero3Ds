@@ -448,7 +448,11 @@ namespace
             return { position.x - imageBox.width(), position.y, imageBox.width(), imageBox.height() };
         }
 
+#if defined( TARGET_NINTENDO_3DS )
+        return Interface::getPopupWindowPosition( le.getMouseCursorPos(), { 0, 0, fheroes2::Display::instance().width(), fheroes2::Display::instance().height() },
+#else
         return Interface::getPopupWindowPosition( le.getMouseCursorPos(), Interface::AdventureMap::Get().getGameArea().GetROI(),
+#endif
                                                   { imageBox.width(), imageBox.height() } );
     }
 
@@ -596,6 +600,9 @@ namespace
 
     void showQuickInfo( const Castle & castle, const fheroes2::Point & position, const bool showOnRadar, const fheroes2::Rect & areaToRestore )
     {
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Scope3DSStandardLayout standardLayout;
+#endif
         const CursorRestorer cursorRestorer( false );
 
         // Update radar if needed
@@ -678,7 +685,12 @@ namespace
         display.render();
 
         // quick info loop
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Point hoverPosition = le.getMouseCursorPos();
+        while ( le.HandleEvents() && le.getMouseCursorPos() == hoverPosition && !le.isAnyKeyPressed() && !le.isMouseLeftButtonPressed() )
+#else
         while ( le.HandleEvents() && le.isMouseRightButtonPressed() )
+#endif
             ;
 
         // restore background
@@ -693,6 +705,9 @@ namespace
     void showQuickInfo( const HeroBase & hero, const fheroes2::Point & position, const bool showOnRadar, const fheroes2::Rect & areaToRestore,
                         const std::optional<bool> showFullInfo )
     {
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Scope3DSStandardLayout standardLayout;
+#endif
         const CursorRestorer cursorRestorer( false );
 
         // Update radar if needed
@@ -898,7 +913,12 @@ namespace
         display.render();
 
         // quick info loop
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Point hoverPosition = le.getMouseCursorPos();
+        while ( le.HandleEvents() && le.getMouseCursorPos() == hoverPosition && !le.isAnyKeyPressed() && !le.isMouseLeftButtonPressed() )
+#else
         while ( le.HandleEvents() && le.isMouseRightButtonPressed() )
+#endif
             ;
 
         // restore background

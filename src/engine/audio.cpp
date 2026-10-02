@@ -21,6 +21,8 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#if !defined( TARGET_NINTENDO_3DS )
+
 #include "audio.h"
 
 #include <algorithm>
@@ -1124,3 +1126,5 @@ void Music::setMidiTimidityCfg( const std::string & path )
     ERROR_LOG( "Failed to set the path to the timidity.cfg file to " << path << ". The error: operation not supported" )
 #endif
 }
+
+#endif

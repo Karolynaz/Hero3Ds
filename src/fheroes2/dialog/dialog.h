@@ -32,6 +32,7 @@
 #include "game_mode.h"
 #include "image.h"
 #include "math_base.h"
+#include "screen.h"
 #include "ui_constants.h"
 
 class Castle;
@@ -153,6 +154,9 @@ namespace Dialog
         static int32_t getButtonAreaHeight();
 
     protected:
+#if defined( TARGET_NINTENDO_3DS )
+        fheroes2::Scope3DSStandardLayout _standard3DSLayout;
+#endif
         std::unique_ptr<fheroes2::ImageRestorer> _restorer;
         fheroes2::Rect area;
 

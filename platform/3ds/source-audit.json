@@ -1,0 +1,14 @@
+{
+  "upstream_commit": "5affbfbba6bcc38eedbfa91cc0e4494cda2c3eb3",
+  "remote_blob_count": 963,
+  "matching_files": 957,
+  "missing": [],
+  "changed_during_implementation": [
+    "src/engine/core.cpp",
+    "src/engine/localevent.cpp",
+    "src/engine/screen.cpp",
+    "src/engine/screen.h",
+    "src/engine/system.cpp",
+    "src/fheroes2/game/fheroes2.cpp"
+  ]
+}

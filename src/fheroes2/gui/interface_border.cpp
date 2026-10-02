@@ -69,6 +69,17 @@ namespace
 
 void Interface::GameBorderRedraw( const bool viewWorldMode )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    if ( !viewWorldMode ) {
+        auto & display = fheroes2::Display::instance();
+        const uint8_t color = fheroes2::GetColorId( 0x51, 0x31, 0x18 );
+        fheroes2::Fill( display, 0, 0, 400, 24, color );
+        fheroes2::Fill( display, 0, 24, 8, 208, color );
+        fheroes2::Fill( display, 392, 24, 8, 208, color );
+        fheroes2::Fill( display, 0, 232, 400, 8, color );
+        return;
+    }
+#endif
     const Settings & conf = Settings::Get();
     if ( conf.isHideInterfaceEnabled() && !viewWorldMode )
         return;

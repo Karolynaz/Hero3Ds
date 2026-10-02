@@ -31,6 +31,7 @@
 #include <set>
 #include <utility>
 
+#if !defined( TARGET_NINTENDO_3DS )
 // Managing compiler warnings for SDL headers
 #if defined( __GNUC__ )
 #pragma GCC diagnostic push
@@ -57,6 +58,12 @@
 #pragma GCC diagnostic pop
 #endif
 
+#else
+#include <3ds.h>
+
+#include "framebuffer_3ds.h"
+#endif
+
 #if defined( TARGET_PS_VITA )
 #include <vita2d.h>
 #endif
@@ -68,6 +75,7 @@
 
 namespace
 {
+#if !defined( TARGET_NINTENDO_3DS )
     // Returns nearest screen supported resolution
     fheroes2::ResolutionInfo GetNearestResolution( fheroes2::ResolutionInfo resolutionInfo, const std::vector<fheroes2::ResolutionInfo> & resolutions )
     {
@@ -195,6 +203,8 @@ namespace
     }
 #endif
 
+#endif
+
     std::vector<uint8_t> StandardPaletteIndexes()
     {
         std::vector<uint8_t> indexes( fheroes2::paletteSize );
@@ -265,7 +275,7 @@ namespace
     const fheroes2::RGB * currentRGBPalette = RGBPalette();
 
 // If SDL library is used
-#if !defined( TARGET_PS_VITA )
+#if !defined( TARGET_PS_VITA ) && !defined( TARGET_NINTENDO_3DS )
     class BaseSDLRenderer
     {
     protected:
@@ -608,7 +618,9 @@ namespace
     };
 #endif
 
-#if defined( TARGET_PS_VITA )
+#if defined( TARGET_NINTENDO_3DS )
+#include "screen_3ds.inc"
+#elif defined( TARGET_PS_VITA )
     class RenderCursor final : public fheroes2::Cursor
     {
     public:
@@ -1447,6 +1459,62 @@ namespace
 
 namespace fheroes2
 {
+    static bool adventure3DSLayout = false;
+    static unsigned standard3DSLayoutDepth = 0;
+#if defined( TARGET_NINTENDO_3DS )
+    static std::vector<uint8_t> adventure3DSSnapshot;
+    static Size adventure3DSSnapshotSize;
+#endif
+
+    void set3DSAdventureLayout( const bool enabled )
+    {
+        adventure3DSLayout = enabled;
+    }
+    bool is3DSAdventureLayout()
+    {
+        return adventure3DSLayout && standard3DSLayoutDepth == 0;
+    }
+    const uint8_t * get3DSAdventureSnapshot()
+    {
+#if defined( TARGET_NINTENDO_3DS )
+        if ( standard3DSLayoutDepth > 0 && !adventure3DSSnapshot.empty() )
+            return adventure3DSSnapshot.data();
+#endif
+        return nullptr;
+    }
+    void push3DSStandardLayout()
+    {
+#if defined( TARGET_NINTENDO_3DS )
+        if ( standard3DSLayoutDepth == 0 && adventure3DSLayout ) {
+            auto & display = Display::instance();
+            if ( !display.empty() ) {
+                adventure3DSSnapshotSize = { display.width(), display.height() };
+                adventure3DSSnapshot.assign( display.image(), display.image() + static_cast<size_t>( display.width() ) * display.height() );
+                threeDS::prepareModalCanvas( adventure3DSSnapshot.data(), display.image(), display.width(), display.height() );
+            }
+        }
+#endif
+        ++standard3DSLayoutDepth;
+    }
+    void pop3DSStandardLayout()
+    {
+        assert( standard3DSLayoutDepth > 0 );
+        --standard3DSLayoutDepth;
+#if defined( TARGET_NINTENDO_3DS )
+        if ( standard3DSLayoutDepth == 0 && !adventure3DSSnapshot.empty() ) {
+            auto & display = Display::instance();
+            if ( adventure3DSLayout && display.width() == adventure3DSSnapshotSize.width && display.height() == adventure3DSSnapshotSize.height ) {
+                std::copy( adventure3DSSnapshot.begin(), adventure3DSSnapshot.end(), display.image() );
+                adventure3DSSnapshot.clear();
+                // Image restorers have already run. Present the restored split
+                // immediately, even when no adventure redraw is pending.
+                display.render();
+            }
+            adventure3DSSnapshot.clear();
+        }
+#endif
+    }
+
     void BaseRenderEngine::linkRenderSurface( uint8_t * surface ) const
     {
         Display::instance().linkRenderSurface( surface );

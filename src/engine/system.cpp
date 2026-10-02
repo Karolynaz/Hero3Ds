@@ -56,14 +56,16 @@
 #pragma GCC diagnostic ignored "-Wswitch-default"
 #endif
 
+#if !defined( TARGET_NINTENDO_3DS )
 #include <SDL_touch.h>
+#endif
 
 #if defined( ANDROID )
 #include <SDL_error.h>
 #include <SDL_system.h>
 #endif
 
-#if ( !defined( __linux__ ) || defined( ANDROID ) )
+#if ( !defined( __linux__ ) || defined( ANDROID ) ) && !defined( TARGET_NINTENDO_3DS )
 #include <SDL_filesystem.h>
 #include <SDL_stdinc.h>
 #endif
@@ -75,10 +77,13 @@
 
 namespace
 {
-#if !defined( __linux__ ) || defined( ANDROID )
+#if ( !defined( __linux__ ) || defined( ANDROID ) ) && !defined( TARGET_NINTENDO_3DS )
     std::string GetHomeDirectory( const std::string_view appName )
     {
-#if defined( TARGET_PS_VITA )
+#if defined( TARGET_NINTENDO_3DS )
+        (void)appName;
+        return "sdmc:/3ds/fheroes2";
+#elif defined( TARGET_PS_VITA )
         return System::concatPath( "ux0:data", appName );
 #elif defined( TARGET_NINTENDO_SWITCH )
         return System::concatPath( "/switch", appName );
@@ -91,6 +96,7 @@ namespace
 
         return {};
 #endif
+#if !defined( TARGET_NINTENDO_3DS )
         {
             const char * homeEnvPath = getenv( "HOME" );
 
@@ -116,6 +122,7 @@ namespace
         }
 
         return {};
+#endif
     }
 #endif
 
@@ -264,7 +271,7 @@ namespace
 
 bool System::isHandheldDevice()
 {
-#if defined( ANDROID ) || defined( __IPHONEOS__ )
+#if defined( TARGET_NINTENDO_3DS ) || defined( ANDROID ) || defined( __IPHONEOS__ )
     return true;
 #else
     return false;
@@ -273,12 +280,16 @@ bool System::isHandheldDevice()
 
 bool System::isTouchInputAvailable()
 {
+#if defined( TARGET_NINTENDO_3DS )
+    return true;
+#else
     return SDL_GetNumTouchDevices() > 0;
+#endif
 }
 
 bool System::isVirtualKeyboardSupported()
 {
-#if defined( ANDROID ) || defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_SWITCH ) || defined( __IPHONEOS__ )
+#if defined( TARGET_NINTENDO_3DS ) || defined( ANDROID ) || defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_SWITCH ) || defined( __IPHONEOS__ )
     return true;
 #else
     return false;
@@ -337,7 +348,10 @@ std::string System::GetConfigDirectory( const std::string_view appName )
     }
 
     std::string result = [&appName]() -> std::string {
-#if defined( __linux__ ) && !defined( ANDROID )
+#if defined( TARGET_NINTENDO_3DS )
+        (void)appName;
+        return "sdmc:/3ds/fheroes2";
+#elif defined( __linux__ ) && !defined( ANDROID )
         if ( const char * configEnv = getenv( "XDG_CONFIG_HOME" ); configEnv != nullptr ) {
             return concatPath( configEnv, appName );
         }
@@ -369,7 +383,10 @@ std::string System::GetDataDirectory( const std::string_view appName )
     }
 
     std::string result = [&appName]() -> std::string {
-#if defined( __linux__ ) && !defined( ANDROID )
+#if defined( TARGET_NINTENDO_3DS )
+        (void)appName;
+        return "sdmc:/3ds/fheroes2";
+#elif defined( __linux__ ) && !defined( ANDROID )
         if ( const char * dataEnv = getenv( "XDG_DATA_HOME" ); dataEnv != nullptr ) {
             return concatPath( dataEnv, appName );
         }

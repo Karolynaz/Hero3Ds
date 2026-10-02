@@ -59,7 +59,11 @@ namespace
 
         MUS::ExternalMusicNamingScheme namingScheme = MUS::ExternalMusicNamingScheme::WIN_VERSION;
 
+#if defined( TARGET_NINTENDO_3DS )
+        std::array<std::string, 1> extension{ ".ogg" };
+#else
         std::array<std::string, 3> extension{ ".ogg", ".mp3", ".flac" };
+#endif
     };
 
     bool findMusicFile( const std::vector<std::string> & directories, const std::string & fileName, std::string & fullPath )
@@ -125,6 +129,7 @@ namespace
                 return fullPath;
             }
 
+#if !defined( TARGET_NINTENDO_3DS )
             fheroes2::replaceStringEnding( fileName, musicFileType.extension[0].c_str(), musicFileType.extension[1].c_str() );
             if ( findMusicFile( musicDirectories, fileName, fullPath ) ) {
                 // Swap extensions to improve cache hit.
@@ -139,6 +144,7 @@ namespace
                 return fullPath;
             }
 
+#endif
             // Looks like music file does not exist.
             return {};
         };

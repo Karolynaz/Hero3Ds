@@ -74,6 +74,9 @@ void Interface::StatusPanel::SetPos( int32_t x, int32_t y )
         height = fheroes2::Display::instance().height() - y - fheroes2::borderWidthPx;
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    height = 64;
+#endif
     BorderWindow::SetPosition( x, y, width, height );
 }
 
@@ -109,6 +112,12 @@ void Interface::StatusPanel::_redraw() const
     if ( world.CountDay() == 0 ) {
         return;
     }
+
+#if defined( TARGET_NINTENDO_3DS )
+    // Date remains visible instead of rotating through funds and armies.
+    _drawDayInfo();
+    return;
+#endif
 
     // draw info: Day and Funds and Army
     const fheroes2::Sprite & ston = Assets::getImage( conf.isEvilInterfaceEnabled() ? ICN::STONBAKE : ICN::STONBACK, 0 );

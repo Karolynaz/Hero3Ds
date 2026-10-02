@@ -35,7 +35,9 @@
 #pragma GCC diagnostic ignored "-Wswitch-default"
 #endif
 
+#if !defined( TARGET_NINTENDO_3DS )
 #include <SDL_main.h> // IWYU pragma: keep
+#endif
 
 // Managing compiler warnings for SDL headers
 #if defined( __GNUC__ )
