@@ -84,22 +84,69 @@ namespace EventProcessing
             circlePosition circle{};
             hidCircleRead( &circle );
             const fheroes2::Display & display = fheroes2::Display::instance();
-            const int width = fheroes2::is3DSAdventureLayout() ? 400 : display.width();
-            const int height = fheroes2::is3DSAdventureLayout() ? 240 : display.height();
-            if ( std::abs( circle.dx ) > 20 || std::abs( circle.dy ) > 20 ) {
-                const double x = fheroes2::input3DS::cursorAxis( events._emulatedPointerPos.x, circle.dx, elapsed, width );
-                const double y = fheroes2::input3DS::cursorAxis( events._emulatedPointerPos.y, -circle.dy, elapsed, height );
-                const fheroes2::Point point( static_cast<int32_t>( x ), static_cast<int32_t>( y ) );
-                if ( point != events.getMouseCursorPos() ) {
+            const bool battleView = fheroes2::is3DSBattleView();
+            const bool battleViewChanged = battleView != _wasBattleView;
+            if ( battleView ) {
+                auto camera = fheroes2::get3DSBattleCamera();
+                if ( !_wasBattleView ) {
+                    _battlePointerPos = { std::clamp( static_cast<double>( events.getMouseCursorPos().x - camera.x ), 0.0, 399.0 ),
+                                          std::clamp( static_cast<double>( events.getMouseCursorPos().y - camera.y ), 0.0, 239.0 ) };
+                    _cameraPanRemainder = {};
+                }
+                const int horizontal = static_cast<int>( ( held & KEY_DRIGHT ) != 0 ) - static_cast<int>( ( held & KEY_DLEFT ) != 0 );
+                const int vertical = static_cast<int>( ( held & KEY_DDOWN ) != 0 ) - static_cast<int>( ( held & KEY_DUP ) != 0 );
+                const double panDistance = 300.0 * std::clamp( elapsed, 0.0, 0.05 );
+                _cameraPanRemainder.x = horizontal ? _cameraPanRemainder.x + horizontal * panDistance : 0.0;
+                _cameraPanRemainder.y = vertical ? _cameraPanRemainder.y + vertical * panDistance : 0.0;
+                const fheroes2::Point pan( static_cast<int32_t>( _cameraPanRemainder.x ), static_cast<int32_t>( _cameraPanRemainder.y ) );
+                _cameraPanRemainder.x -= pan.x;
+                _cameraPanRemainder.y -= pan.y;
+                if ( pan != fheroes2::Point() ) {
+                    fheroes2::pan3DSBattleCamera( pan );
+                    updateDisplay = true;
+                }
+                camera = fheroes2::get3DSBattleCamera();
+                _battlePointerPos.x = fheroes2::input3DS::cursorAxis( _battlePointerPos.x, circle.dx, elapsed, 400 );
+                _battlePointerPos.y = fheroes2::input3DS::cursorAxis( _battlePointerPos.y, -circle.dy, elapsed, 240 );
+                // Camera changes (including automatic enemy following) retain
+                // the physical cursor location within the visible top screen.
+                const fheroes2::Point point( camera.x + static_cast<int32_t>( _battlePointerPos.x ), camera.y + static_cast<int32_t>( _battlePointerPos.y ) );
+                if ( !_touchGate.active() && point != events.getMouseCursorPos() ) {
                     events.onMouseMotionEvent( point );
                 }
-                events._emulatedPointerPos = { x, y };
+                if ( !_touchGate.active() ) {
+                    events._emulatedPointerPos = { camera.x + _battlePointerPos.x, camera.y + _battlePointerPos.y };
+                }
             }
-            const auto touchTransition = _touchGate.update( fheroes2::is3DSAdventureLayout(), held & KEY_TOUCH, down & KEY_TOUCH, up & KEY_TOUCH );
-            if ( _touchGate.active() && ( held & KEY_TOUCH ) ) {
+            else {
+                const int width = fheroes2::is3DSAdventureLayout() ? 400 : display.width();
+                const int height = fheroes2::is3DSAdventureLayout() ? 240 : display.height();
+                if ( std::abs( circle.dx ) > 20 || std::abs( circle.dy ) > 20 ) {
+                    const double x = fheroes2::input3DS::cursorAxis( events._emulatedPointerPos.x, circle.dx, elapsed, width );
+                    const double y = fheroes2::input3DS::cursorAxis( events._emulatedPointerPos.y, -circle.dy, elapsed, height );
+                    const fheroes2::Point point( static_cast<int32_t>( x ), static_cast<int32_t>( y ) );
+                    if ( point != events.getMouseCursorPos() ) {
+                        events.onMouseMotionEvent( point );
+                    }
+                    events._emulatedPointerPos = { x, y };
+                }
+            }
+            _wasBattleView = battleView;
+            fheroes2::Point projectedTouch( -1, -1 );
+            if ( held & KEY_TOUCH ) {
                 touchPosition touch{};
                 hidTouchRead( &touch );
-                _touch = fheroes2::Point( touch.px, touch.py + 240 );
+                if ( battleView ) {
+                    projectedTouch = fheroes2::map3DSBattleTouch( { touch.px, touch.py } );
+                }
+                else if ( fheroes2::is3DSAdventureLayout() ) {
+                    projectedTouch = { touch.px, touch.py + 240 };
+                }
+            }
+            const bool touchEnabled = fheroes2::is3DSAdventureLayout() || ( battleView && ( !( held & KEY_TOUCH ) || projectedTouch.x >= 0 ) );
+            const auto touchTransition = _touchGate.update( touchEnabled && !battleViewChanged, held & KEY_TOUCH, down & KEY_TOUCH, up & KEY_TOUCH );
+            if ( _touchGate.active() && ( held & KEY_TOUCH ) ) {
+                _touch = projectedTouch;
                 events.onMouseMotionEvent( _touch );
             }
             using TouchTransition = fheroes2::input3DS::TouchGate::Transition;
@@ -131,13 +178,13 @@ namespace EventProcessing
                 key = fheroes2::Key::KEY_E;
             else if ( down & KEY_Y )
                 key = fheroes2::Key::KEY_H;
-            else if ( held & KEY_DLEFT )
+            else if ( !battleView && ( held & KEY_DLEFT ) )
                 key = fheroes2::Key::KEY_LEFT;
-            else if ( held & KEY_DRIGHT )
+            else if ( !battleView && ( held & KEY_DRIGHT ) )
                 key = fheroes2::Key::KEY_RIGHT;
-            else if ( held & KEY_DUP )
+            else if ( !battleView && ( held & KEY_DUP ) )
                 key = fheroes2::Key::KEY_UP;
-            else if ( held & KEY_DDOWN )
+            else if ( !battleView && ( held & KEY_DDOWN ) )
                 key = fheroes2::Key::KEY_DOWN;
             if ( _previousKey != fheroes2::Key::NONE && _previousKey != key ) {
                 events.onKeyboardEvent( _previousKey, 0, LocalEvent::KeyboardEventState::KEY_UP );
@@ -152,6 +199,9 @@ namespace EventProcessing
     private:
         fheroes2::Time _timer;
         fheroes2::Point _touch;
+        fheroes2::PointBase2D<double> _battlePointerPos;
+        fheroes2::PointBase2D<double> _cameraPanRemainder;
+        bool _wasBattleView{ false };
         fheroes2::input3DS::TouchGate _touchGate;
         fheroes2::Key _previousKey{ fheroes2::Key::NONE };
     };

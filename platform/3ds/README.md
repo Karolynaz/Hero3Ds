@@ -16,7 +16,10 @@ pakeitimai nedaromi.
 
 Nuotykių žemėlapyje viršuje naudojama 400×240 sritis, apačioje — 320×240. Variklio 640×480 loginis paviršius leidžia išlaikyti esamus meniu, kovas ir miestus.
 Nuotykių režimu atskirai pateikiamos native ekranų sritys; standartiniai vaizdai sumažinami į viršutinį ekraną.
-Dialogo metu apačioje išlieka nuotykių skydelis. Meniu, dialogai ir kovos valdomi Circle Pad bei A/B; jų metu lietimas išjungtas.
+Mūšio peržiūroje viršuje rodoma originalios grafikos 400×240 iškarpa santykiu 1:1. Kamera prasideda ties `(0, 0)`; D-pad ją slenka, Circle Pad valdo žymeklį.
+AI būrių judėjimą ir atakų / burtų taikinius kamera seka automatiškai. Esama 640 px mūšio valdymo bei pranešimų juosta apačioje pateikiama dviem 320 px eilėmis.
+Jos valdikliai pasirenkami lietimu. Mūšio dialogai kol kas atidaromi sumažinti; juos uždarius grįžta 1:1 vaizdas ir ankstesnė kamera.
+Dialogo metu apačioje išlieka nuotykių skydelis. Meniu ir dialogai valdomi Circle Pad bei A/B; jų metu lietimas išjungtas.
 
 | Valdiklis | Veiksmas |
 | --- | --- |
@@ -96,7 +99,7 @@ Esamų failų neperrašo be `--overwrite`; esamų save/config failų nekopijuoja
 * Įgyvendintas išorinių OGG takelių srautinis atkūrimas per Tremor/NDSP: trys 16 KiB PCM buferiai ir atskiras muzikos kanalas. Originalių MIDI takelių sintezė,
   MP3 ir FLAC atkūrimas nepalaikomi. Muzikos ir WAV efektų veikimą dar reikia išbandyti konsolėje; garsui reikalinga tinkama DSP aplinka. Senam 3DS bandymui
   galima konvertuoti muziką į 22050 Hz OGG; CPU/FPS vis tiek būtina išmatuoti.
-* Meniu, kovos, miestai ir standartiniai dialogai kol kas naudoja sumažintą originalų išdėstymą. Jų įskaitomumą ir valdymą būtina tikrinti konsolėje.
+* Meniu, miestai ir standartiniai dialogai kol kas naudoja sumažintą originalų išdėstymą. Jų įskaitomumą ir valdymą būtina tikrinti konsolėje.
 * Išorinių PNG/BMP importas native backend nepalaikomas; originalūs AGG ir H2D ištekliai naudojami. Ekrano kopijos išsaugomos BMP formatu.
 * RAM, FPS, originalaus 3DS suderinamumas, suspend/resume ir visi žaidimo scenarijai dar neišbandyti hardware.
 

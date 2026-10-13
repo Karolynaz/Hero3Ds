@@ -86,8 +86,11 @@ protected:
             const auto & color = currentRGBPalette[_palette[i]];
             colors[i] = ( uint32_t( color.r ) << 16 ) | ( uint32_t( color.g ) << 8 ) | color.b;
         }
+        const auto camera = fheroes2::get3DSBattleCamera();
+        const auto footer = fheroes2::get3DSBattleFooter();
+        const fheroes2::threeDS::BattleFrame battle{ fheroes2::is3DSBattleView(), camera.x, camera.y, footer.y, footer.height, fheroes2::get3DSBattleSnapshot() };
         fheroes2::threeDS::renderFramebuffers( display.image(), display.width(), display.height(), colors, top, bottom, fheroes2::is3DSAdventureLayout(),
-                                               fheroes2::get3DSAdventureSnapshot() );
+                                               fheroes2::get3DSAdventureSnapshot(), &battle );
         gfxFlushBuffers();
         gfxSwapBuffers();
         if ( _vsync )

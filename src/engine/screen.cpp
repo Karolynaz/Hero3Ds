@@ -1461,9 +1461,15 @@ namespace fheroes2
 {
     static bool adventure3DSLayout = false;
     static unsigned standard3DSLayoutDepth = 0;
+    static bool battle3DSActive = false;
+    static unsigned battle3DSStandardBaseline = 0;
+    static Point battle3DSCamera;
+    static Rect battle3DSFooter{ 0, 430, 640, 50 };
 #if defined( TARGET_NINTENDO_3DS )
     static std::vector<uint8_t> adventure3DSSnapshot;
     static Size adventure3DSSnapshotSize;
+    static std::vector<uint8_t> battle3DSSnapshot;
+    static Size battle3DSSnapshotSize;
 #endif
 
     void set3DSAdventureLayout( const bool enabled )
@@ -1472,12 +1478,78 @@ namespace fheroes2
     }
     bool is3DSAdventureLayout()
     {
-        return adventure3DSLayout && standard3DSLayoutDepth == 0;
+        return !battle3DSActive && adventure3DSLayout && standard3DSLayoutDepth == 0;
+    }
+    void enterBattle3DSView()
+    {
+        battle3DSActive = true;
+        battle3DSStandardBaseline = standard3DSLayoutDepth;
+        battle3DSCamera = { 0, 0 };
+    }
+    void leaveBattle3DSView()
+    {
+        battle3DSActive = false;
+#if defined( TARGET_NINTENDO_3DS )
+        battle3DSSnapshot.clear();
+#endif
+    }
+    bool is3DSBattleView()
+    {
+        return battle3DSActive && standard3DSLayoutDepth == battle3DSStandardBaseline;
+    }
+    Point get3DSBattleCamera()
+    {
+        return battle3DSCamera;
+    }
+    void pan3DSBattleCamera( const Point delta )
+    {
+        battle3DSCamera.x = std::clamp<int32_t>( battle3DSCamera.x + delta.x, 0, 240 );
+        battle3DSCamera.y = std::clamp<int32_t>( battle3DSCamera.y + delta.y, 0, std::max<int32_t>( 0, battle3DSFooter.y - 240 ) );
+    }
+    void focus3DSBattleCamera( const Point sourceCenter )
+    {
+        // Keep an animation target inside the screen without recentering when
+        // it is already visible; manual camera movement remains predictable.
+        Point delta;
+        if ( sourceCenter.x < battle3DSCamera.x + 40 )
+            delta.x = sourceCenter.x - battle3DSCamera.x - 40;
+        else if ( sourceCenter.x >= battle3DSCamera.x + 360 )
+            delta.x = sourceCenter.x - battle3DSCamera.x - 359;
+        if ( sourceCenter.y < battle3DSCamera.y + 40 )
+            delta.y = sourceCenter.y - battle3DSCamera.y - 40;
+        else if ( sourceCenter.y >= battle3DSCamera.y + 200 )
+            delta.y = sourceCenter.y - battle3DSCamera.y - 199;
+        pan3DSBattleCamera( delta );
+    }
+    void set3DSBattleFooter( const Rect sourceFooter )
+    {
+        battle3DSFooter = { 0, std::clamp<int32_t>( sourceFooter.y, 0, 479 ), 640, std::clamp<int32_t>( sourceFooter.height, 1, 120 ) };
+        battle3DSFooter.height = std::min( battle3DSFooter.height, 480 - battle3DSFooter.y );
+        pan3DSBattleCamera( {} );
+    }
+    Rect get3DSBattleFooter()
+    {
+        return battle3DSFooter;
+    }
+    Point map3DSBattleTouch( const Point bottomPoint )
+    {
+        if ( !is3DSBattleView() || bottomPoint.x < 0 || bottomPoint.x >= 320 || bottomPoint.y < 0 || bottomPoint.y >= battle3DSFooter.height * 2 )
+            return { -1, -1 };
+        const int half = bottomPoint.y / battle3DSFooter.height;
+        return { bottomPoint.x + half * 320, battle3DSFooter.y + bottomPoint.y % battle3DSFooter.height };
+    }
+    const uint8_t * get3DSBattleSnapshot()
+    {
+#if defined( TARGET_NINTENDO_3DS )
+        if ( battle3DSActive && !is3DSBattleView() && !battle3DSSnapshot.empty() )
+            return battle3DSSnapshot.data();
+#endif
+        return nullptr;
     }
     const uint8_t * get3DSAdventureSnapshot()
     {
 #if defined( TARGET_NINTENDO_3DS )
-        if ( standard3DSLayoutDepth > 0 && !adventure3DSSnapshot.empty() )
+        if ( !battle3DSActive && standard3DSLayoutDepth > 0 && !adventure3DSSnapshot.empty() )
             return adventure3DSSnapshot.data();
 #endif
         return nullptr;
@@ -1485,7 +1557,14 @@ namespace fheroes2
     void push3DSStandardLayout()
     {
 #if defined( TARGET_NINTENDO_3DS )
-        if ( standard3DSLayoutDepth == 0 && adventure3DSLayout ) {
+        if ( is3DSBattleView() ) {
+            auto & display = Display::instance();
+            if ( !display.empty() ) {
+                battle3DSSnapshotSize = { display.width(), display.height() };
+                battle3DSSnapshot.assign( display.image(), display.image() + static_cast<size_t>( display.width() ) * display.height() );
+            }
+        }
+        else if ( !battle3DSActive && standard3DSLayoutDepth == 0 && adventure3DSLayout ) {
             auto & display = Display::instance();
             if ( !display.empty() ) {
                 adventure3DSSnapshotSize = { display.width(), display.height() };
@@ -1501,6 +1580,15 @@ namespace fheroes2
         assert( standard3DSLayoutDepth > 0 );
         --standard3DSLayoutDepth;
 #if defined( TARGET_NINTENDO_3DS )
+        if ( is3DSBattleView() && !battle3DSSnapshot.empty() ) {
+            auto & display = Display::instance();
+            if ( display.width() == battle3DSSnapshotSize.width && display.height() == battle3DSSnapshotSize.height ) {
+                std::copy( battle3DSSnapshot.begin(), battle3DSSnapshot.end(), display.image() );
+                battle3DSSnapshot.clear();
+                display.render();
+            }
+            battle3DSSnapshot.clear();
+        }
         if ( standard3DSLayoutDepth == 0 && !adventure3DSSnapshot.empty() ) {
             auto & display = Display::instance();
             if ( adventure3DSLayout && display.width() == adventure3DSSnapshotSize.width && display.height() == adventure3DSSnapshotSize.height ) {

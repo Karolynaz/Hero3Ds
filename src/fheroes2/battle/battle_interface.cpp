@@ -1494,6 +1494,9 @@ Battle::Interface::Interface( Arena & battleArena, const int32_t tileIndex )
     listlog = std::make_unique<StatusListBox>();
 
     const int32_t battlefieldHeight = area.height - status.height;
+#if defined( TARGET_NINTENDO_3DS )
+    fheroes2::set3DSBattleFooter( { area.x, area.y + battlefieldHeight, area.width, status.height } );
+#endif
 
     if ( listlog ) {
         listlog->SetPosition( area.x, area.y + battlefieldHeight );
@@ -1523,6 +1526,12 @@ Battle::Interface::~Interface()
     const bool isDefaultScreenSize = fheroes2::Display::instance().isDefaultSize();
 
     fheroes2::fadeOutDisplay( _background->activeArea(), !isDefaultScreenSize );
+
+#if defined( TARGET_NINTENDO_3DS )
+    // Keep the native crop through fade-out, then end battle presentation
+    // before releasing its persistent standard-layout window.
+    fheroes2::leaveBattle3DSView();
+#endif
 
     // For 640x480 resolution we do screen fade-in.
     if ( isDefaultScreenSize ) {
@@ -1576,6 +1585,13 @@ void Battle::Interface::fullRedraw()
         _background = std::make_unique<fheroes2::StandardWindow>( fheroes2::Display::DEFAULT_WIDTH, fheroes2::Display::DEFAULT_HEIGHT, false );
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    if ( !_native3DSBattleView ) {
+        // Capture the layout depth after the persistent battle window exists.
+        fheroes2::enterBattle3DSView();
+        _native3DSBattleView = true;
+    }
+#endif
     fheroes2::Display & display = fheroes2::Display::instance();
 
     // Fade-out game screen only for 640x480 resolution.
@@ -2107,6 +2123,11 @@ fheroes2::Point Battle::Interface::_drawTroopSprite( const Unit & unit, const fh
         offset.y += moveY + static_cast<int32_t>( ( _movingPos.y - _flyingPos.y ) * movementProgress );
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    if ( _follow3DSBattleMovement && ( unit.GetCurrentControl() & CONTROL_AI ) && ( _movingUnit == &unit || _flyingUnit == &unit ) ) {
+        fheroes2::focus3DSBattleCamera( { _interfacePosition.x + offset.x + troopSprite.width() / 2, _interfacePosition.y + offset.y + troopSprite.height() / 2 } );
+    }
+#endif
     if ( _drawTroopSpriteWithMoatMask( unit, troopSprite, offset, movementDelta, movementDirection ) ) {
         return offset;
     }
@@ -4044,6 +4065,9 @@ void Battle::Interface::RedrawActionNewTurn() const
 
 void Battle::Interface::RedrawActionAttackPart1( Unit & attacker, const Unit & defender, const TargetsInfo & targets )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( defender.GetCenterPoint() );
+#endif
     Cursor::Get().SetThemes( Cursor::WAR_POINTER );
 
     _currentUnit = nullptr;
@@ -4133,6 +4157,9 @@ void Battle::Interface::RedrawActionAttackPart1( Unit & attacker, const Unit & d
 
 void Battle::Interface::RedrawActionAttackPart2( Unit & attacker, const Unit & defender, const TargetsInfo & targets, const uint32_t resurrects )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( defender.GetCenterPoint() );
+#endif
     // Reset the delay to wait till the next frame.
     if ( !Game::isDelayNeeded( { Game::DelayType::BATTLE_FRAME_DELAY } ) ) {
         Game::AnimateResetDelay( Game::DelayType::BATTLE_FRAME_DELAY );
@@ -4426,6 +4453,9 @@ void Battle::Interface::RedrawActionMove( Unit & unit, const Indexes & path )
         Game::AnimateResetDelay( Game::DelayType::CUSTOM_BATTLE_UNIT_MOVEMENT_DELAY );
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    _follow3DSBattleMovement = true;
+#endif
     Cursor::Get().SetThemes( Cursor::WAR_POINTER );
 
     Indexes::const_iterator dst = path.begin();
@@ -4667,6 +4697,9 @@ void Battle::Interface::RedrawActionMove( Unit & unit, const Indexes & path )
     status.setMessage( msg, true );
 
     assert( _currentUnit == nullptr && _movingUnit == nullptr && _flyingUnit == nullptr );
+#if defined( TARGET_NINTENDO_3DS )
+    _follow3DSBattleMovement = false;
+#endif
 }
 
 void Battle::Interface::RedrawActionFly( Unit & unit, const Position & pos )
@@ -4684,6 +4717,9 @@ void Battle::Interface::RedrawActionFly( Unit & unit, const Position & pos )
         Game::AnimateResetDelay( Game::DelayType::CUSTOM_BATTLE_UNIT_MOVEMENT_DELAY );
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    _follow3DSBattleMovement = true;
+#endif
     Cursor::Get().SetThemes( Cursor::WAR_POINTER );
 
     const fheroes2::Point destPos = unit.GetRectPosition().getPosition();
@@ -4796,6 +4832,9 @@ void Battle::Interface::RedrawActionFly( Unit & unit, const Position & pos )
     status.setMessage( msg, true );
 
     assert( _currentUnit == nullptr && _movingUnit == nullptr && _flyingUnit == nullptr );
+#if defined( TARGET_NINTENDO_3DS )
+    _follow3DSBattleMovement = false;
+#endif
 }
 
 void Battle::Interface::RedrawActionResistSpell( const Unit & target, const bool playSound )
@@ -4832,6 +4871,14 @@ void Battle::Interface::redrawActionSpellCastStatus( const Spell & spell, int32_
 
 void Battle::Interface::redrawActionSpellCastPart1( const Spell & spell, int32_t dst, const HeroBase * caster, const TargetsInfo & targets )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    if ( const Cell * cell = Board::GetCell( dst ) ) {
+        _focus3DSAction( cell->GetPos().getPosition() + fheroes2::Point( Cell::widthPx / 2, Cell::heightPx / 2 ) );
+    }
+    else if ( !targets.empty() && targets.front().defender ) {
+        _focus3DSAction( targets.front().defender->GetCenterPoint() );
+    }
+#endif
     // Reset the idle animation delay timer to prevent the target unit from starting the idle animation.
     for ( const TargetInfo & spellTarget : targets ) {
         spellTarget.defender->checkIdleDelay();
@@ -5153,6 +5200,11 @@ void Battle::Interface::redrawActionSpellCastPart2( const Spell & spell, const T
 
 void Battle::Interface::RedrawActionMonsterSpellCastStatus( const Spell & spell, const Unit & attacker, const TargetInfo & target )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    if ( target.defender ) {
+        _focus3DSAction( target.defender->GetCenterPoint() );
+    }
+#endif
     std::string msg;
     const uint32_t attackerCount = attacker.GetCount();
 
@@ -5390,6 +5442,9 @@ void Battle::Interface::RedrawActionMorale( Unit & unit, const bool isGoodMorale
 
 void Battle::Interface::RedrawActionTowerPart1( const Tower & tower, const Unit & defender )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( defender.GetCenterPoint() );
+#endif
     Cursor::Get().SetThemes( Cursor::WAR_POINTER );
     _currentUnit = nullptr;
 
@@ -5614,6 +5669,9 @@ void Battle::Interface::RedrawActionCatapultPart2( const CastleDefenseStructure 
 
 void Battle::Interface::_redrawActionArrowSpell( const Unit & target )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( target.GetCenterPoint() );
+#endif
     const HeroBase * caster = arena.GetCurrentCommander();
 
     if ( caster ) {
@@ -5632,6 +5690,9 @@ void Battle::Interface::_redrawActionArrowSpell( const Unit & target )
 
 void Battle::Interface::_redrawActionTeleportSpell( Unit & target, const int32_t dst )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( target.GetCenterPoint() );
+#endif
     LocalEvent & le = LocalEvent::Get();
 
     Cursor::Get().SetThemes( Cursor::WAR_POINTER );
@@ -5761,6 +5822,9 @@ void Battle::Interface::_redrawActionTeleportSpell( Unit & target, const int32_t
 
 void Battle::Interface::_redrawActionSummonElementalSpell( Unit & target )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( target.GetCenterPoint() );
+#endif
     LocalEvent & le = LocalEvent::Get();
 
     Cursor::Get().SetThemes( Cursor::WAR_POINTER );
@@ -5988,6 +6052,9 @@ void Battle::Interface::_redrawLightningOnTargets( const std::vector<fheroes2::P
 
 void Battle::Interface::_redrawActionLightningBoltSpell( const Unit & target )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( target.GetCenterPoint() );
+#endif
     _currentUnit = nullptr;
 
     const fheroes2::Point startingPos
@@ -6018,6 +6085,9 @@ void Battle::Interface::_redrawActionChainLightningSpell( const TargetsInfo & ta
 
 void Battle::Interface::_redrawActionBloodLustSpell( const Unit & target )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( target.GetCenterPoint() );
+#endif
     LocalEvent & le = LocalEvent::Get();
 
     const fheroes2::Sprite & unitSprite = Assets::getImage( target.GetMonsterSprite(), target.GetFrame() );
@@ -6073,6 +6143,9 @@ void Battle::Interface::_redrawActionBloodLustSpell( const Unit & target )
 
 void Battle::Interface::_redrawActionStoneSpell( const Unit & target )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( target.GetCenterPoint() );
+#endif
     LocalEvent & le = LocalEvent::Get();
 
     const fheroes2::Sprite & unitSprite = Assets::getImage( target.GetMonsterSprite(), target.GetFrame() );
@@ -6135,6 +6208,9 @@ void Battle::Interface::_redrawActionStoneSpell( const Unit & target )
 
 void Battle::Interface::_redrawActionResurrectSpell( Unit & target, const Spell & spell )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( target.GetCenterPoint() );
+#endif
     if ( !target.isValid() ) {
         // TODO: the below logic doesn't work properly for cases when a 2-hex unit is being resurrected in relation to another 2-hex unit.
         //       This will require us to redo rendering sequence as we render from left to right and the right hex always has higher priority
@@ -6182,6 +6258,9 @@ void Battle::Interface::_redrawActionColdRaySpell( Unit & target )
 
 void Battle::Interface::_redrawRaySpell( const Unit & target, const int spellICN, const int spellSound, const int32_t size )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( target.GetCenterPoint() );
+#endif
     Cursor & cursor = Cursor::Get();
     LocalEvent & le = LocalEvent::Get();
 
@@ -7493,3 +7572,12 @@ void Battle::PopupDamageInfo::redraw() const
     fheroes2::Copy( _damageImage, 0, 0, display, _damageImage.x(), _damageImage.y(), _damageImage.width(), _damageImage.height() );
     fheroes2::addGradientShadowForArea( display, { _damageImage.x(), _damageImage.y() }, _damageImage.width(), _damageImage.height(), 5 );
 }
+
+#if defined( TARGET_NINTENDO_3DS )
+void Battle::Interface::_focus3DSAction( const fheroes2::Point & position ) const
+{
+    if ( arena.GetCurrentForce().GetControl() & CONTROL_AI ) {
+        fheroes2::focus3DSBattleCamera( position + _interfacePosition.getPosition() );
+    }
+}
+#endif

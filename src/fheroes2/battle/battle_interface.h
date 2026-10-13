@@ -534,6 +534,11 @@ namespace Battle
         uint32_t _contourCycle{ 0 };
 
         const Unit * _currentUnit{ nullptr };
+#if defined( TARGET_NINTENDO_3DS )
+        bool _native3DSBattleView{ false };
+        bool _follow3DSBattleMovement{ false };
+        void _focus3DSAction( const fheroes2::Point & position ) const;
+#endif
         const Unit * _movingUnit{ nullptr };
         const Unit * _flyingUnit{ nullptr };
         const Unit * _unitToHighlight{ nullptr };

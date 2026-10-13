@@ -35,6 +35,18 @@ namespace fheroes2
     // The adventure UI uses native pixel regions of the 640x480 game canvas.
     void set3DSAdventureLayout( bool enabled );
     bool is3DSAdventureLayout();
+    // Battle keeps its original 640x480 canvas; native presentation pans only
+    // the top screen and projects the existing footer onto the bottom screen.
+    void enterBattle3DSView();
+    void leaveBattle3DSView();
+    bool is3DSBattleView();
+    Point get3DSBattleCamera();
+    void pan3DSBattleCamera( Point delta );
+    void focus3DSBattleCamera( Point sourceCenter );
+    void set3DSBattleFooter( Rect sourceFooter );
+    Rect get3DSBattleFooter();
+    Point map3DSBattleTouch( Point bottomPoint );
+    const uint8_t * get3DSBattleSnapshot();
     void push3DSStandardLayout();
     void pop3DSStandardLayout();
     const uint8_t * get3DSAdventureSnapshot();
