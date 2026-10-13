@@ -3990,6 +3990,9 @@ void Battle::Interface::RedrawActionSkipStatus( const Unit & unit )
 
 void Battle::Interface::RedrawMissileAnimation( const fheroes2::Point & startPos, const fheroes2::Point & endPos, const double angle, const uint32_t monsterID )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    _focus3DSAction( startPos );
+#endif
     LocalEvent & le = LocalEvent::Get();
 
     const bool reverse = startPos.x > endPos.x;
@@ -4033,6 +4036,11 @@ void Battle::Interface::RedrawMissileAnimation( const fheroes2::Point & startPos
         _checkGlobalEvents( le );
 
         if ( Game::validateAnimationDelay( Game::DelayType::BATTLE_MISSILE_DELAY ) ) {
+#if defined( TARGET_NINTENDO_3DS )
+            // Follow the projectile across the native viewport, rather than
+            // keeping the camera on the victim throughout the whole shot.
+            _focus3DSAction( *pnt );
+#endif
             RedrawPartialStart();
             if ( isMage ) {
                 fheroes2::DrawLine( _mainSurface, { startPos.x, startPos.y - 2 }, { pnt->x, pnt->y - 2 }, 0x77 );
@@ -4066,7 +4074,8 @@ void Battle::Interface::RedrawActionNewTurn() const
 void Battle::Interface::RedrawActionAttackPart1( Unit & attacker, const Unit & defender, const TargetsInfo & targets )
 {
 #if defined( TARGET_NINTENDO_3DS )
-    _focus3DSAction( defender.GetCenterPoint() );
+    // Show who attacks before following the missile and the impact target.
+    _focus3DSAction( attacker.GetCenterPoint() );
 #endif
     Cursor::Get().SetThemes( Cursor::WAR_POINTER );
 
