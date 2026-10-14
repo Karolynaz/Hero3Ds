@@ -507,12 +507,16 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
         sequence.push( ICN::WINCMBT, true );
         fheroes2::draw3DSPanel( { 10, 10, 380, 220 } );
         fheroes2::draw3DSPanel( { 0, 240, 320, 240 } );
-        fheroes2::Text( title, fheroes2::FontType::normalWhite() ).draw( 28, 22, 344, display );
-        std::string outcome = surrenderText;
-        if ( !outcome.empty() && !outcomeText.empty() ) {
-            outcome += "\n";
+        // The summary title is a full outcome sentence, not a short heading.
+        // Keep it below the illustration together with rewards/surrender text.
+        std::string outcome = title;
+        for ( const auto * additional : { &surrenderText, &outcomeText } ) {
+            if ( !additional->empty() ) {
+                if ( !outcome.empty() )
+                    outcome += "\n";
+                outcome += *additional;
+            }
         }
-        outcome += outcomeText;
         const fheroes2::Text outcomeLabel( outcome, fheroes2::FontType::normalWhite() );
         const int animationHeight = std::clamp<int32_t>( 152 - outcomeLabel.height( 344 ), 60, 116 );
         const int animationWidth = animationHeight * 231 / 133;
