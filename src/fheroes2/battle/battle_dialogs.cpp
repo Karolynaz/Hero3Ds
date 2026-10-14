@@ -507,31 +507,42 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
         sequence.push( ICN::WINCMBT, true );
         fheroes2::draw3DSPanel( { 10, 10, 380, 220 } );
         fheroes2::draw3DSPanel( { 0, 240, 320, 240 } );
-        fheroes2::Text( title, fheroes2::FontType::normalWhite() ).draw( 12, 248, 296, display );
+        fheroes2::Text( title, fheroes2::FontType::normalWhite() ).draw( 28, 22, 344, display );
         std::string outcome = surrenderText;
         if ( !outcome.empty() && !outcomeText.empty() ) {
             outcome += "\n";
         }
         outcome += outcomeText;
         const fheroes2::Text outcomeLabel( outcome, fheroes2::FontType::normalWhite() );
-        const bool showOutcomeDetails = outcomeLabel.height( 296 ) > 38;
-        if ( showOutcomeDetails ) {
-            fheroes2::Text( _( "Details after closing this screen." ), fheroes2::FontType::normalWhite() ).draw( 12, 272, 296, display );
-        }
-        else {
-            outcomeLabel.draw( 12, 272, 296, display );
-        }
+        const int animationHeight = std::clamp<int32_t>( 152 - outcomeLabel.height( 344 ), 60, 116 );
+        const int animationWidth = animationHeight * 231 / 133;
+        const int animationX = ( 400 - animationWidth ) / 2;
+        outcomeLabel.draw( 28, 46 + animationHeight + 8, 344, display );
         const auto drawCasualties = [&]( const Troops & troops, const char * label, const int32_t y ) {
-            fheroes2::Text( label, fheroes2::FontType::normalWhite() ).draw( 12, y, 296, display );
-            if ( troops.isValid() ) {
-                Army::drawSingleDetailedMonsterLine( troops, 12, y + 20, 296 );
+            fheroes2::Text( label, fheroes2::FontType::normalWhite() ).draw( 20, y, 280, display );
+            const auto count = troops.GetOccupiedSlotCount();
+            if ( count == 0 ) {
+                fheroes2::Text( _( "None" ), fheroes2::FontType::normalWhite() ).draw( 20, y + 34, 280, display );
+                return;
             }
-            else {
-                fheroes2::Text( _( "None" ), fheroes2::FontType::normalWhite() ).draw( 12, y + 22, 296, display );
+            const int cellWidth = 280 / static_cast<int>( count );
+            int index = 0;
+            for ( size_t slot = 0; slot < troops.Size(); ++slot ) {
+                const Troop * troop = troops.GetTroop( slot );
+                if ( !troop || !troop->isValid() ) {
+                    continue;
+                }
+                const auto & original = Assets::getImage( ICN::MONS32, troop->GetSpriteIndex() );
+                fheroes2::Image enlarged( original.width() * 3 / 2, original.height() * 3 / 2 );
+                fheroes2::Resize( original, enlarged );
+                const int x = 20 + index * cellWidth;
+                fheroes2::Blit( enlarged, display, x + ( cellWidth - enlarged.width() ) / 2, y + 22 + 48 - enlarged.height() );
+                fheroes2::Text( std::to_string( troop->GetCount() ), fheroes2::FontType::normalWhite() ).draw( x, y + 72, cellWidth, display );
+                ++index;
             }
         };
-        drawCasualties( _attackingArmy->GetKilledTroops(), _( "Attacker" ), 316 );
-        drawCasualties( _defendingArmy->GetKilledTroops(), _( "Defender" ), 376 );
+        drawCasualties( _attackingArmy->GetKilledTroops(), _( "Attacker" ), 258 );
+        drawCasualties( _defendingArmy->GetKilledTroops(), _( "Defender" ), 350 );
         auto buttonOk = fheroes2::make3DSButton( _( "Okay" ), allowToRestart ? fheroes2::Rect{ 12, 442, 140, 30 } : fheroes2::Rect{ 60, 442, 200, 30 } );
         auto buttonRestart = fheroes2::make3DSButton( _( "Restart" ), { 168, 442, 140, 30 } );
         const auto renderAnimation = [&]() {
@@ -544,10 +555,10 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
             fheroes2::Copy( base, 0, 0, frame, 0, 0, base.width(), base.height() );
             const auto & sprite = Assets::getImage( sequence.id(), sequence.frameId() );
             fheroes2::Blit( sprite, frame, sprite.x(), sprite.y() );
-            fheroes2::Image enlarged( 368, 208 );
+            fheroes2::Image enlarged( animationWidth, animationHeight );
             enlarged._disableTransformLayer();
             fheroes2::Resize( frame, enlarged );
-            fheroes2::Copy( enlarged, 0, 0, display, 16, 16, 368, 208 );
+            fheroes2::Copy( enlarged, 0, 0, display, animationX, 46, animationWidth, animationHeight );
         };
         renderAnimation();
         buttonOk.draw();
@@ -571,9 +582,6 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
                 renderAnimation();
                 display.render();
             }
-        }
-        if ( showOutcomeDetails ) {
-            fheroes2::showStandardTextMessage( title, outcome, Dialog::OK );
         }
         // Artifact ownership is transferred by the battle logic. Preserve its
         // original per-artifact announcements after acknowledging the result.

@@ -44,6 +44,7 @@ namespace
             original.fill( fheroes2::GetColorId( 70, 40, 20 ) );
         fheroes2::Sprite result( width, height, 0, 0 );
         result._disableTransformLayer();
+        result.reset();
         fheroes2::Resize( original, result );
         return result;
     }
@@ -58,7 +59,7 @@ namespace fheroes2
         Copy( panel, 0, 0, Display::instance(), area.x, area.y, area.width, area.height );
         if ( !title.empty() ) {
             Text text( title, FontType::normalYellow() );
-            text.draw( area.x + 12, area.y + 10, area.width - 24, Display::instance() );
+            text.draw( area.x + 20, area.y + 20, area.width - 40, Display::instance() );
         }
     }
 
@@ -66,7 +67,7 @@ namespace fheroes2
     {
         auto released = artwork( threeDSUIAssets::button_default, area.width, area.height );
         auto pressed = artwork( threeDSUIAssets::button_pressed, area.width, area.height );
-        auto focused = artwork( threeDSUIAssets::button_focused, area.width, area.height );
+        auto focused = artwork( threeDSUIAssets::button_pressed, area.width, area.height );
         auto disabled = artwork( threeDSUIAssets::button_disabled, area.width, area.height );
         Text text( label, FontType::normalWhite() );
         const int y = std::max<int32_t>( 2, ( area.height - text.height( area.width - 12 ) ) / 2 );

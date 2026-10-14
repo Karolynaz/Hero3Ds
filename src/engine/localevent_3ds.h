@@ -207,36 +207,18 @@ namespace EventProcessing
                 }
             }
             else if ( battleView ) {
-                auto camera = fheroes2::get3DSBattleCamera();
                 if ( !_wasBattleView ) {
-                    _battlePointerPos = { std::clamp( static_cast<double>( events.getMouseCursorPos().x - camera.x ), 0.0, 399.0 ),
-                                          std::clamp( static_cast<double>( events.getMouseCursorPos().y - camera.y ), 0.0, 239.0 ) };
-                    _cameraPanRemainder = {};
+                    const auto logical = events.getMouseCursorPos();
+                    _battlePointerPos = { std::clamp( static_cast<double>( logical.x ) * 380.0 / 640.0, 0.0, 379.0 ),
+                                          std::clamp( static_cast<double>( logical.y ) * 380.0 / 640.0 - 20.0, 0.0, 239.0 ) };
                 }
-                const int horizontal = static_cast<int>( ( held & KEY_DRIGHT ) != 0 ) - static_cast<int>( ( held & KEY_DLEFT ) != 0 );
-                const int vertical = static_cast<int>( ( held & KEY_DDOWN ) != 0 ) - static_cast<int>( ( held & KEY_DUP ) != 0 );
-                const double panDistance = 300.0 * std::clamp( elapsed, 0.0, 0.05 );
-                _cameraPanRemainder.x = horizontal ? _cameraPanRemainder.x + horizontal * panDistance : 0.0;
-                _cameraPanRemainder.y = vertical ? _cameraPanRemainder.y + vertical * panDistance : 0.0;
-                const fheroes2::Point pan( static_cast<int32_t>( _cameraPanRemainder.x ), static_cast<int32_t>( _cameraPanRemainder.y ) );
-                _cameraPanRemainder.x -= pan.x;
-                _cameraPanRemainder.y -= pan.y;
-                if ( pan != fheroes2::Point() ) {
-                    fheroes2::pan3DSBattleCamera( pan );
-                    updateDisplay = true;
-                }
-                camera = fheroes2::get3DSBattleCamera();
-                _battlePointerPos.x = fheroes2::input3DS::cursorAxis( _battlePointerPos.x, circle.dx, elapsed, 400 );
+                _battlePointerPos.x = fheroes2::input3DS::cursorAxis( _battlePointerPos.x, circle.dx, elapsed, 380 );
                 _battlePointerPos.y = fheroes2::input3DS::cursorAxis( _battlePointerPos.y, -circle.dy, elapsed, 240 );
-                // Camera changes (including automatic enemy following) retain
-                // the physical cursor location within the visible top screen.
-                const fheroes2::Point point( camera.x + static_cast<int32_t>( _battlePointerPos.x ), camera.y + static_cast<int32_t>( _battlePointerPos.y ) );
-                if ( !_touchGate.active() && point != events.getMouseCursorPos() ) {
+                const auto point = fheroes2::map3DSBattlePointer( { static_cast<int32_t>( _battlePointerPos.x ), static_cast<int32_t>( _battlePointerPos.y ) } );
+                if ( !_touchGate.active() && point != events.getMouseCursorPos() )
                     events.onMouseMotionEvent( point );
-                }
-                if ( !_touchGate.active() ) {
-                    events._emulatedPointerPos = { camera.x + _battlePointerPos.x, camera.y + _battlePointerPos.y };
-                }
+                if ( !_touchGate.active() )
+                    events._emulatedPointerPos = { static_cast<double>( point.x ), static_cast<double>( point.y ) };
             }
             else {
                 const int width = fheroes2::is3DSAdventureLayout() ? 400 : display.width();
@@ -332,7 +314,6 @@ namespace EventProcessing
         fheroes2::Time _timer;
         fheroes2::Point _touch;
         fheroes2::PointBase2D<double> _battlePointerPos;
-        fheroes2::PointBase2D<double> _cameraPanRemainder;
         bool _wasBattleView{ false };
         bool _wasDialogFreePointer{ false };
         fheroes2::PointBase2D<double> _dialogFreePointerPos;

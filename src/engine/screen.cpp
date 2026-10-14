@@ -1499,25 +1499,16 @@ namespace fheroes2
     {
         return battle3DSCamera;
     }
-    void pan3DSBattleCamera( const Point delta )
-    {
-        battle3DSCamera.x = std::clamp<int32_t>( battle3DSCamera.x + delta.x, 0, 240 );
-        battle3DSCamera.y = std::clamp<int32_t>( battle3DSCamera.y + delta.y, 0, std::max<int32_t>( 0, battle3DSFooter.y - 240 ) );
+    void pan3DSBattleCamera( const Point )
+    { /* Fixed full-width scaled battle presentation. */
     }
-    void focus3DSBattleCamera( const Point sourceCenter )
+    void focus3DSBattleCamera( const Point )
+    { /* Every battle column is already visible. */
+    }
+    Point map3DSBattlePointer( const Point viewportPoint )
     {
-        // Keep an animation target inside the screen without recentering when
-        // it is already visible; manual camera movement remains predictable.
-        Point delta;
-        if ( sourceCenter.x < battle3DSCamera.x + 40 )
-            delta.x = sourceCenter.x - battle3DSCamera.x - 40;
-        else if ( sourceCenter.x >= battle3DSCamera.x + 360 )
-            delta.x = sourceCenter.x - battle3DSCamera.x - 359;
-        if ( sourceCenter.y < battle3DSCamera.y + 40 )
-            delta.y = sourceCenter.y - battle3DSCamera.y - 40;
-        else if ( sourceCenter.y >= battle3DSCamera.y + 200 )
-            delta.y = sourceCenter.y - battle3DSCamera.y - 199;
-        pan3DSBattleCamera( delta );
+        return { std::clamp<int32_t>( viewportPoint.x, 0, 379 ) * 640 / 380,
+                 std::min<int32_t>( ( std::clamp<int32_t>( viewportPoint.y, 0, 239 ) + 20 ) * 640 / 380, battle3DSFooter.y - 1 ) };
     }
     void set3DSBattleFooter( const Rect sourceFooter )
     {
@@ -1774,14 +1765,18 @@ namespace fheroes2
             frame.savedCanvas.assign( display.image(), display.image() + static_cast<size_t>( display.width() ) * display.height() );
             frame.frozenTop.resize( 400 * 240, 0 );
             const auto * previousTop = get3DSDialogFrozenTop();
-            const Point camera = is3DSBattleView() ? battle3DSCamera : Point{};
-            for ( int y = 0; y < 240; ++y )
-                for ( int x = 0; x < 400; ++x ) {
-                    if ( previousTop && !has3DSDialogTopOverlay() )
-                        frame.frozenTop[y * 400 + x] = previousTop[y * 400 + x];
-                    else if ( x + camera.x < display.width() && y + camera.y < display.height() )
-                        frame.frozenTop[y * 400 + x] = display.image()[( y + camera.y ) * display.width() + x + camera.x];
-                }
+            const bool scaledBattle = is3DSBattleView();
+            if ( scaledBattle )
+                threeDS::copyBattleTopIndexed( display.image(), display.width(), display.height(), battle3DSFooter.y, frame.frozenTop.data() );
+            const Point camera{};
+            if ( !scaledBattle )
+                for ( int y = 0; y < 240; ++y )
+                    for ( int x = 0; x < 400; ++x ) {
+                        if ( previousTop && !has3DSDialogTopOverlay() )
+                            frame.frozenTop[y * 400 + x] = previousTop[y * 400 + x];
+                        else if ( x + camera.x < display.width() && y + camera.y < display.height() )
+                            frame.frozenTop[y * 400 + x] = display.image()[( y + camera.y ) * display.width() + x + camera.x];
+                    }
             if ( explicitLayout )
                 for ( int y = 0; y < 240; ++y )
                     std::copy_n( frame.frozenTop.data() + y * 400, std::min<int32_t>( 400, display.width() ), display.image() + y * display.width() );

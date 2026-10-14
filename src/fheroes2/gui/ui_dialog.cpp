@@ -88,7 +88,7 @@ namespace
         }
         Text heading( header.text(), FontType::normalYellow() );
         Text message( body.text(), FontType::normalWhite() );
-        constexpr int width = 296;
+        constexpr int width = 280;
         int height = ( heading.empty() ? 0 : heading.height( width ) + 8 ) + ( message.empty() ? 0 : message.height( width ) + 8 );
         std::vector<Point> positions;
         int x = 0, rowHeight = 0;
@@ -114,8 +114,8 @@ namespace
         content._disableTransformLayer();
         content.fill( GetColorId( 62, 38, 24 ) );
         draw3DSPanel( { 0, 240, 320, 240 } );
-        for ( int row = 0; row < content.height(); row += 164 )
-            Copy( display, 12, 246, content, 0, row, width, std::min<int32_t>( 164, content.height() - row ) );
+        for ( int row = 0; row < content.height(); row += 148 )
+            Copy( display, 20, 260, content, 0, row, width, std::min<int32_t>( 148, content.height() - row ) );
         int y = 0;
         if ( !heading.empty() ) {
             heading.draw( 0, y, width, content );
@@ -126,7 +126,7 @@ namespace
         for ( size_t i = 0; i < elements.size(); ++i )
             if ( positions[i].x >= 0 )
                 elements[i]->draw( content, positions[i] );
-        constexpr int pageHeight = 164;
+        constexpr int pageHeight = 148;
         const int columns = std::max<int32_t>( 1, ( contentWidth + width - 1 ) / width );
         const int pages = columns * std::max<int32_t>( 1, ( height + pageHeight - 1 ) / pageHeight );
         int page = 0;
@@ -149,8 +149,11 @@ namespace
         set3DSDialogCancelable( closable );
         std::vector<std::unique_ptr<ButtonSprite>> buttons;
         const int buttonWidth = std::min<int32_t>( 144, ( 296 - static_cast<int>( values.size() - 1 ) * 6 ) / static_cast<int>( values.size() ) );
+        const int groupWidth = static_cast<int>( values.size() ) * buttonWidth + static_cast<int>( values.size() - 1 ) * 6;
+        const int groupX = ( 320 - groupWidth ) / 2;
         for ( size_t i = 0; i < values.size(); ++i )
-            buttons.push_back( std::make_unique<ButtonSprite>( make3DSButton( labels[i], { 12 + static_cast<int>( i ) * ( buttonWidth + 6 ), 442, buttonWidth, 28 } ) ) );
+            buttons.push_back(
+                std::make_unique<ButtonSprite>( make3DSButton( labels[i], { groupX + static_cast<int>( i ) * ( buttonWidth + 6 ), 442, buttonWidth, 28 } ) ) );
         auto previous = make3DSButton( "<", { 12, 412, 48, 24 } );
         auto next = make3DSButton( ">", { 260, 412, 48, 24 } );
         const auto redraw = [&]() {
@@ -159,7 +162,7 @@ namespace
             const int pageY = ( page / columns ) * pageHeight;
             const int amount = std::min<int32_t>( pageHeight, content.height() - pageY );
             if ( amount > 0 )
-                Copy( content, pageX, pageY, display, 12, 246, std::min<int32_t>( width, content.width() - pageX ), amount );
+                Copy( content, pageX, pageY, display, 20, 260, std::min<int32_t>( width, content.width() - pageX ), amount );
             if ( pages > 1 ) {
                 if ( page == 0 )
                     previous.disable();
