@@ -11,7 +11,12 @@ from PIL import Image
 
 root = Path(__file__).resolve().parents[3]
 folder = root / 'new UI elements'
-palette = (root / 'ui-assets/palette.pal').read_bytes()
+palette = bytearray((root / 'ui-assets/palette.pal').read_bytes())
+# Match setGamePalette(), including its non-cycling water/lava copies.
+stable = {231: 246, 232: 247, 233: 248, 234: 236, 235: 249, 214: 250, 215: 251, 216: 252, 217: 253}
+for animated, fixed in stable.items():
+    palette[fixed * 3:fixed * 3 + 3] = palette[animated * 3:animated * 3 + 3]
+remap = bytes(stable.get(i, i) for i in range(256))
 pal = Image.new('P', (1, 1))
 pal.putpalette([v * 4 for v in palette])
 specs = [('panel-top', 380, 220), ('panel-bottom', 320, 240)] + [(f'button-{s}', 144, 40) for s in ['default', 'focused', 'pressed', 'disabled']]
@@ -22,7 +27,7 @@ for name, w, h in specs:
     image = Image.open(target if target.exists() else folder / 'source' / f'{name}.png').convert('RGB')
     image = image.resize((w, h), Image.Resampling.LANCZOS)
     image.save(target)
-    pixels = image.quantize(palette=pal, dither=Image.Dither.NONE).tobytes()
+    pixels = image.quantize(palette=pal, dither=Image.Dither.NONE).tobytes().translate(remap)
     packed = zlib.compress(pixels, 9)
     symbol = name.replace('-', '_')
     header.append(f'inline constexpr uint8_t {symbol}_data[] = {{')
