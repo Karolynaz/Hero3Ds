@@ -26,12 +26,14 @@
 #include <utility>
 
 #include "cursor.h"
+#include "dialog.h"
 #include "game_assets.h"
 #include "icn.h"
 #include "image.h"
 #include "localevent.h"
 #include "screen.h"
 #include "ui_constants.h"
+#include "ui_dialog.h"
 #include "ui_text.h"
 
 namespace Interface
@@ -56,6 +58,8 @@ namespace Interface
     void displayStandardPopupWindow( std::string text, const fheroes2::Rect & interfaceArea )
     {
 #if defined( TARGET_NINTENDO_3DS )
+        fheroes2::showStandardTextMessage( {}, std::move( text ), Dialog::ZERO );
+        return;
         const fheroes2::Scope3DSStandardLayout standardLayout;
 #endif
         const CursorRestorer cursorRestorer( false );

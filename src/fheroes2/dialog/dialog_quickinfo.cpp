@@ -64,6 +64,7 @@
 #include "spell.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_castle.h"
 #include "ui_map_interface.h"
 #include "ui_text.h"
@@ -613,10 +614,17 @@ namespace
 
         LocalEvent & le = LocalEvent::Get();
         fheroes2::Rect cur_rt = makeRectQuickInfo( le, box, position );
+#if defined( TARGET_NINTENDO_3DS )
+        fheroes2::register3DSDialogROI( cur_rt );
+#endif
 
         fheroes2::Display & display = fheroes2::Display::instance();
         fheroes2::ImageRestorer back( display, cur_rt.x, cur_rt.y, cur_rt.width, cur_rt.height );
+#if defined( TARGET_NINTENDO_3DS )
+        fheroes2::draw3DSPanel( cur_rt );
+#else
         fheroes2::Blit( box, display, cur_rt.x, cur_rt.y );
+#endif
 
         cur_rt = fheroes2::Rect( cur_rt.x + 22, cur_rt.y + 9, 192, 154 );
         fheroes2::Point dst_pt;
@@ -718,10 +726,17 @@ namespace
 
         LocalEvent & le = LocalEvent::Get();
         fheroes2::Rect cur_rt = makeRectQuickInfo( le, box, position );
+#if defined( TARGET_NINTENDO_3DS )
+        fheroes2::register3DSDialogROI( cur_rt );
+#endif
 
         fheroes2::Display & display = fheroes2::Display::instance();
         fheroes2::ImageRestorer restorer( display, cur_rt.x, cur_rt.y, cur_rt.width, cur_rt.height );
+#if defined( TARGET_NINTENDO_3DS )
+        fheroes2::draw3DSPanel( cur_rt );
+#else
         fheroes2::Blit( box, display, cur_rt.x, cur_rt.y );
+#endif
 
         cur_rt = fheroes2::Rect( restorer.x() + 28, restorer.y() + 10, 146, 144 );
         fheroes2::Point dst_pt;
