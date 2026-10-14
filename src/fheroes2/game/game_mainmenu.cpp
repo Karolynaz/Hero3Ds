@@ -61,6 +61,7 @@
 #include "settings.h"
 #include "system.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_language.h"
@@ -295,6 +296,47 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
     outputMainMenuInTextSupportMode();
 
     LocalEvent & le = LocalEvent::Get();
+
+#if defined( TARGET_NINTENDO_3DS )
+    // Keep the entire original title artwork with its existing aspect ratio.
+    // Native menu scopes subsequently display these top-screen pixels 1:1.
+    {
+        auto & menuDisplay = fheroes2::Display::instance();
+        fheroes2::Image titleArt( 320, 240 );
+        titleArt._disableTransformLayer();
+        fheroes2::Resize( menuDisplay, titleArt );
+        fheroes2::Fill( menuDisplay, 0, 0, 400, 240, 0 );
+        fheroes2::Copy( titleArt, 0, 0, menuDisplay, 40, 0, 320, 240 );
+    }
+
+    while ( true ) {
+        const bool hasEditor = conf.isPriceOfLoyaltySupported();
+        std::vector<std::string> labels{ _( "New Game" ), _( "Load Game" ), _( "High Scores" ), _( "Credits" ), hasEditor ? _( "Editor" ) : _( "Settings" ),
+                                         _( "Quit" ) };
+        const int choice = fheroes2::show3DSMenu( _( "Heroes of Might and Magic II" ), labels, {}, false );
+        switch ( choice ) {
+        case 0:
+            return fheroes2::GameMode::NEW_GAME;
+        case 1:
+            return fheroes2::GameMode::LOAD_GAME;
+        case 2:
+            return fheroes2::GameMode::HIGHSCORES_STANDARD;
+        case 3:
+            return fheroes2::GameMode::CREDITS;
+        case 4:
+            if ( hasEditor ) {
+                return fheroes2::GameMode::EDITOR_MAIN_MENU;
+            }
+            fheroes2::openGameSettings();
+            return fheroes2::GameMode::MAIN_MENU;
+        default:
+            if ( Game::processExitEvent() == fheroes2::GameMode::QUIT_GAME ) {
+                return fheroes2::GameMode::QUIT_GAME;
+            }
+            break;
+        }
+    }
+#endif
 
     fheroes2::Button buttonNewGame( 0, 0, ICN::BTNSHNGL, NEWGAME_DEFAULT, NEWGAME_DEFAULT + 2 );
     fheroes2::Button buttonLoadGame( 0, 0, ICN::BTNSHNGL, LOADGAME_DEFAULT, LOADGAME_DEFAULT + 2 );

@@ -31,6 +31,7 @@
 #include "image.h"
 #include "screen.h"
 #include "settings.h"
+#include "ui_3ds.h"
 
 namespace
 {
@@ -128,12 +129,23 @@ Dialog::ResizableFrameBox::ResizableFrameBox( int width, int height, int startYP
 
     area.x = _position.x + ( windowWidth - area.width ) / 2 + leftSideOffset;
     area.y = _position.y + ( topHeight( evil ) - activeAreaHeight );
+#if defined( TARGET_NINTENDO_3DS )
+    fheroes2::register3DSDialogROI( { _position.x, _position.y, overallWidth( evil ), height_top_bottom + _middleFragmentHeight } );
+#endif
 
     redraw();
 }
 
 void Dialog::ResizableFrameBox::redraw()
 {
+#if defined( TARGET_NINTENDO_3DS )
+    if ( fheroes2::is3DSNativeDialog() ) {
+        fheroes2::draw3DSPanel(
+            { _position.x, _position.y, overallWidth( Settings::Get().isEvilInterfaceEnabled() ),
+              topHeight( Settings::Get().isEvilInterfaceEnabled() ) + bottomHeight( Settings::Get().isEvilInterfaceEnabled() ) + _middleFragmentHeight } );
+        return;
+    }
+#endif
     const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
     const int buybuild = isEvilInterface ? ICN::BUYBUILE : ICN::BUYBUILD;
 

@@ -1467,9 +1467,7 @@ namespace fheroes2
     static Rect battle3DSFooter{ 0, 430, 640, 50 };
 #if defined( TARGET_NINTENDO_3DS )
     static std::vector<uint8_t> adventure3DSSnapshot;
-    static Size adventure3DSSnapshotSize;
     static std::vector<uint8_t> battle3DSSnapshot;
-    static Size battle3DSSnapshotSize;
 #endif
 
     void set3DSAdventureLayout( const bool enabled )
@@ -1554,51 +1552,262 @@ namespace fheroes2
 #endif
         return nullptr;
     }
-    void push3DSStandardLayout()
+    struct NativeDialogFrame
     {
-#if defined( TARGET_NINTENDO_3DS )
-        if ( is3DSBattleView() ) {
-            auto & display = Display::instance();
-            if ( !display.empty() ) {
-                battle3DSSnapshotSize = { display.width(), display.height() };
-                battle3DSSnapshot.assign( display.image(), display.image() + static_cast<size_t>( display.width() ) * display.height() );
-            }
+        std::vector<uint8_t> savedCanvas;
+        std::vector<uint8_t> frozenTop;
+        Size canvasSize;
+        Point crop{ 0, 240 };
+        bool enabled{ false };
+        bool explicitLayout{ false };
+        bool topOverlay{ false };
+        bool dimBackground{ true };
+        std::vector<std::pair<const void *, Rect>> buttons;
+        const void * focus{ nullptr };
+        size_t scopeId{ 0 };
+        std::optional<bool> closable;
+        Rect registeredROI;
+        bool hasRegisteredROI{ false };
+    };
+    static std::vector<NativeDialogFrame> nativeDialogFrames;
+    static size_t nextNativeDialogScopeId = 1;
+    bool is3DSNativeDialog()
+    {
+        return !nativeDialogFrames.empty() && nativeDialogFrames.back().enabled && !is3DSBattleView();
+    }
+    size_t get3DSDialogScopeId()
+    {
+        return is3DSNativeDialog() ? nativeDialogFrames.back().scopeId : 0;
+    }
+    void set3DSNativeDialogEnabled( const bool enabled )
+    {
+        if ( !nativeDialogFrames.empty() )
+            nativeDialogFrames.back().enabled = enabled;
+    }
+    bool is3DSDialogClosable()
+    {
+        if ( !is3DSNativeDialog() )
+            return true;
+        const auto & frame = nativeDialogFrames.back();
+        return frame.closable.value_or( frame.buttons.size() != 1 );
+    }
+    void set3DSDialogClosable( const bool enabled )
+    {
+        if ( is3DSNativeDialog() )
+            nativeDialogFrames.back().closable = enabled;
+    }
+    void set3DSDialogCancelable( const bool enabled )
+    {
+        set3DSDialogClosable( enabled );
+    }
+    Rect get3DSDialogViewport()
+    {
+        if ( !is3DSNativeDialog() )
+            return {};
+        const auto p = nativeDialogFrames.back().crop;
+        return { p.x, p.y, 320, 240 };
+    }
+    void pan3DSDialogViewport( const Point delta )
+    {
+        if ( !is3DSNativeDialog() || nativeDialogFrames.back().explicitLayout )
+            return;
+        auto & frame = nativeDialogFrames.back();
+        frame.crop.x = std::clamp<int32_t>( frame.crop.x + delta.x, 0, std::max<int32_t>( 0, frame.canvasSize.width - 320 ) );
+        frame.crop.y = std::clamp<int32_t>( frame.crop.y + delta.y, 0, std::max<int32_t>( 0, frame.canvasSize.height - 240 ) );
+    }
+    void register3DSDialogROI( const Rect roi )
+    {
+        if ( nativeDialogFrames.empty() )
+            return;
+        auto & frame = nativeDialogFrames.back();
+        if ( frame.explicitLayout )
+            return;
+        if ( frame.hasRegisteredROI && frame.registeredROI.x == roi.x && frame.registeredROI.y == roi.y && frame.registeredROI.width == roi.width
+             && frame.registeredROI.height == roi.height )
+            return;
+        frame.registeredROI = roi;
+        frame.hasRegisteredROI = true;
+        // Full-screen legacy backgrounds (town and persistent battlefield) keep
+        // their existing presentation. Smaller windows become native dialogs.
+        if ( roi.width >= 640 && roi.height >= 480 ) {
+            frame.enabled = false;
+            return;
         }
-        else if ( !battle3DSActive && standard3DSLayoutDepth == 0 && adventure3DSLayout ) {
+#if defined( TARGET_NINTENDO_3DS )
+        if ( !frame.enabled ) {
             auto & display = Display::instance();
-            if ( !display.empty() ) {
-                adventure3DSSnapshotSize = { display.width(), display.height() };
-                adventure3DSSnapshot.assign( display.image(), display.image() + static_cast<size_t>( display.width() ) * display.height() );
-                threeDS::prepareModalCanvas( adventure3DSSnapshot.data(), display.image(), display.width(), display.height() );
-            }
+            if ( display.empty() )
+                return;
+            frame.canvasSize = { display.width(), display.height() };
+            frame.savedCanvas.assign( display.image(), display.image() + static_cast<size_t>( display.width() ) * display.height() );
+            frame.frozenTop.assign( 400 * 240, 0 );
+            // The unchanged city screen is currently letterboxed at half size.
+            // Preserve those exact visible pixels before its popup is drawn.
+            for ( int y = 0; y < 240; ++y )
+                for ( int x = 40; x < 360; ++x ) {
+                    const int sx = ( x - 40 ) * 2, sy = y * 2;
+                    if ( sx < display.width() && sy < display.height() )
+                        frame.frozenTop[y * 400 + x] = display.image()[sy * display.width() + sx];
+                }
+            frame.enabled = true;
         }
 #endif
+        frame.crop = { roi.x + ( roi.width - 320 ) / 2, roi.y + ( roi.height - 240 ) / 2 };
+        pan3DSDialogViewport( {} );
+    }
+    Point map3DSDialogTouch( const Point p )
+    {
+        if ( !is3DSNativeDialog() || p.x < 0 || p.y < 0 || p.x >= 320 || p.y >= 240 )
+            return { -1, -1 };
+        const auto crop = nativeDialogFrames.back().crop;
+        return { p.x + crop.x, p.y + crop.y };
+    }
+    const uint8_t * get3DSDialogFrozenTop()
+    {
+        return is3DSNativeDialog() && !nativeDialogFrames.back().frozenTop.empty() ? nativeDialogFrames.back().frozenTop.data() : nullptr;
+    }
+    bool has3DSDialogTopOverlay()
+    {
+        return is3DSNativeDialog() && nativeDialogFrames.back().topOverlay;
+    }
+    void set3DSDialogDimBackground( const bool enabled )
+    {
+        if ( is3DSNativeDialog() )
+            nativeDialogFrames.back().dimBackground = enabled;
+    }
+    bool get3DSDialogDimBackground()
+    {
+        return is3DSNativeDialog() && nativeDialogFrames.back().dimBackground;
+    }
+    void set3DSNativeDialogTopOverlay( const bool enabled )
+    {
+        if ( is3DSNativeDialog() )
+            nativeDialogFrames.back().topOverlay = enabled;
+    }
+    void register3DSDialogButton( const void * id, const Rect area, const bool enabled )
+    {
+        if ( !is3DSNativeDialog() )
+            return;
+        auto & frame = nativeDialogFrames.back();
+        const auto item = std::find_if( frame.buttons.begin(), frame.buttons.end(), [id]( const auto & value ) { return value.first == id; } );
+        if ( !enabled ) {
+            if ( item != frame.buttons.end() )
+                frame.buttons.erase( item );
+            if ( frame.focus == id )
+                frame.focus = nullptr;
+        }
+        else if ( item == frame.buttons.end() )
+            frame.buttons.emplace_back( id, area );
+        else
+            item->second = area;
+        if ( !frame.focus && !frame.buttons.empty() )
+            frame.focus = frame.buttons.front().first;
+    }
+    void unregister3DSDialogButton( const void * id )
+    {
+        for ( auto & frame : nativeDialogFrames ) {
+            frame.buttons.erase( std::remove_if( frame.buttons.begin(), frame.buttons.end(), [id]( const auto & item ) { return item.first == id; } ),
+                                 frame.buttons.end() );
+            if ( frame.focus == id )
+                frame.focus = frame.buttons.empty() ? nullptr : frame.buttons.front().first;
+        }
+    }
+    std::vector<std::pair<const void *, Rect>> get3DSDialogButtons()
+    {
+        return is3DSNativeDialog() ? nativeDialogFrames.back().buttons : std::vector<std::pair<const void *, Rect>>{};
+    }
+    const void * get3DSDialogFocus()
+    {
+        return is3DSNativeDialog() ? nativeDialogFrames.back().focus : nullptr;
+    }
+    Rect get3DSDialogFocusRect()
+    {
+        if ( !is3DSNativeDialog() )
+            return {};
+        const auto & frame = nativeDialogFrames.back();
+        for ( const auto & item : frame.buttons )
+            if ( item.first == frame.focus )
+                return item.second;
+        return {};
+    }
+    void focus3DSDialogButton( const Rect area )
+    {
+        if ( !is3DSNativeDialog() )
+            return;
+        const auto roi = get3DSDialogViewport();
+        Point delta;
+        if ( area.x < roi.x )
+            delta.x = area.x - roi.x;
+        else if ( area.x + area.width > roi.x + roi.width )
+            delta.x = area.x + area.width - roi.x - roi.width;
+        if ( area.y < roi.y )
+            delta.y = area.y - roi.y;
+        else if ( area.y + area.height > roi.y + roi.height )
+            delta.y = area.y + area.height - roi.y - roi.height;
+        pan3DSDialogViewport( delta );
+    }
+    void set3DSDialogFocus( const void * id )
+    {
+        if ( !is3DSNativeDialog() )
+            return;
+        for ( const auto & item : nativeDialogFrames.back().buttons )
+            if ( item.first == id ) {
+                nativeDialogFrames.back().focus = id;
+                focus3DSDialogButton( item.second );
+                return;
+            }
+    }
+    static void pushNativeDialogFrame( const bool explicitLayout, const bool overlay )
+    {
+        NativeDialogFrame frame;
+        frame.scopeId = nextNativeDialogScopeId++;
+        frame.explicitLayout = explicitLayout || ( is3DSNativeDialog() && nativeDialogFrames.back().explicitLayout );
+        frame.topOverlay = overlay;
+        frame.enabled = explicitLayout || is3DSNativeDialog() || is3DSAdventureLayout() || is3DSBattleView();
+#if defined( TARGET_NINTENDO_3DS )
+        auto & display = Display::instance();
+        if ( frame.enabled && !display.empty() ) {
+            frame.canvasSize = { display.width(), display.height() };
+            frame.savedCanvas.assign( display.image(), display.image() + static_cast<size_t>( display.width() ) * display.height() );
+            frame.frozenTop.resize( 400 * 240, 0 );
+            const auto * previousTop = get3DSDialogFrozenTop();
+            const Point camera = is3DSBattleView() ? battle3DSCamera : Point{};
+            for ( int y = 0; y < 240; ++y )
+                for ( int x = 0; x < 400; ++x ) {
+                    if ( previousTop && !has3DSDialogTopOverlay() )
+                        frame.frozenTop[y * 400 + x] = previousTop[y * 400 + x];
+                    else if ( x + camera.x < display.width() && y + camera.y < display.height() )
+                        frame.frozenTop[y * 400 + x] = display.image()[( y + camera.y ) * display.width() + x + camera.x];
+                }
+            if ( explicitLayout )
+                for ( int y = 0; y < 240; ++y )
+                    std::copy_n( frame.frozenTop.data() + y * 400, std::min<int32_t>( 400, display.width() ), display.image() + y * display.width() );
+            if ( !frame.explicitLayout )
+                frame.crop = { 160, 120 };
+        }
+#endif
+        nativeDialogFrames.emplace_back( std::move( frame ) );
         ++standard3DSLayoutDepth;
+    }
+    void push3DSNativeDialog( const bool topOverlay )
+    {
+        pushNativeDialogFrame( true, topOverlay );
+    }
+    void push3DSStandardLayout()
+    {
+        pushNativeDialogFrame( false, false );
     }
     void pop3DSStandardLayout()
     {
-        assert( standard3DSLayoutDepth > 0 );
+        assert( standard3DSLayoutDepth > 0 && !nativeDialogFrames.empty() );
+        auto frame = std::move( nativeDialogFrames.back() );
+        nativeDialogFrames.pop_back();
         --standard3DSLayoutDepth;
 #if defined( TARGET_NINTENDO_3DS )
-        if ( is3DSBattleView() && !battle3DSSnapshot.empty() ) {
-            auto & display = Display::instance();
-            if ( display.width() == battle3DSSnapshotSize.width && display.height() == battle3DSSnapshotSize.height ) {
-                std::copy( battle3DSSnapshot.begin(), battle3DSSnapshot.end(), display.image() );
-                battle3DSSnapshot.clear();
-                display.render();
-            }
-            battle3DSSnapshot.clear();
-        }
-        if ( standard3DSLayoutDepth == 0 && !adventure3DSSnapshot.empty() ) {
-            auto & display = Display::instance();
-            if ( adventure3DSLayout && display.width() == adventure3DSSnapshotSize.width && display.height() == adventure3DSSnapshotSize.height ) {
-                std::copy( adventure3DSSnapshot.begin(), adventure3DSSnapshot.end(), display.image() );
-                adventure3DSSnapshot.clear();
-                // Image restorers have already run. Present the restored split
-                // immediately, even when no adventure redraw is pending.
-                display.render();
-            }
-            adventure3DSSnapshot.clear();
+        auto & display = Display::instance();
+        if ( display.width() == frame.canvasSize.width && display.height() == frame.canvasSize.height && !frame.savedCanvas.empty() ) {
+            std::copy( frame.savedCanvas.begin(), frame.savedCanvas.end(), display.image() );
+            display.render();
         }
 #endif
     }

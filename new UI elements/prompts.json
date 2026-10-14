@@ -1,0 +1,32 @@
+[
+  {
+    "name": "panel-top",
+    "prompt": "A production-ready blank medieval fantasy strategy game dialog background, straight-on flat 2D UI bitmap. Target aspect ratio 380:220, landscape. Warm dark brown finely grained leather center, low-contrast texture suitable for bright readable text. Narrow carved dark bronze and leather rectangular frame with subtle antique gold inner line, elegant simple reinforced corner caps. Crisp pixel-art inspired 1990s Heroes of Might and Magic II aesthetic. Entire image exactly one rectangular panel filling the canvas edge to edge, no margins, no text, no icons, no buttons, no perspective, no drop shadow outside. Design frame visibly at outer 10 pixels in final380x220size. Please produce at380x220if possible.",
+    "generator": "built-in imagegen"
+  },
+  {
+    "name": "panel-bottom",
+    "prompt": "A production-ready blank medieval fantasy strategy game UI panel background. Target aspect ratio320:240 landscape4:3. Warm dark brown finely grained leather center low contrast for readable text; narrow carved dark bronze/leather rectangular rim with antique gold inner line and simple reinforced corner caps. Crisp pixel-art inspired1990s Heroes of Might and Magic II aesthetic. One rectangular panel exactly filling canvas edge to edge; no text no icons no buttons no perspective no outside margins. Match consistent restrained warm brown and gold style. Please produce at320x240if possible.",
+    "generator": "built-in imagegen"
+  },
+  {
+    "name": "button-default",
+    "prompt": "Blank single medieval fantasy game UI button bitmap, rectangular wide horizontal aspect ratio144:40. Warm tan leather inset, dark brown beveled frame and thin antique golden border, lightly raised unpressed default state. Large calm plain center for text, no text no symbols no icons. Crisp pixel art inspired1990s strategy game aesthetic, minimal finely grained leather, strong contrast readable at smallsize. Exactly one button fills canvas edge to edge no margin no backgroundoutside no perspective. Requested144x40.",
+    "generator": "built-in imagegen"
+  },
+  {
+    "name": "button-focused",
+    "prompt": "Blank single medieval fantasy game UI button bitmap wide horizontal aspect ratio144:40. Warm tan leather inset, dark brown beveled frame, luminous warm golden double outline, selected focused hover state with subtle brightcorners. Calm emptycenter for readabletext. No text no symbols no icons. Crisp pixelart1990sstrategygame aesthetic. Exactly one buttonfills canvas edge to edge nooutside margins no perspective. Requested144x40.",
+    "generator": "built-in imagegen"
+  },
+  {
+    "name": "button-pressed",
+    "prompt": "Blank single medieval fantasy game UI button bitmap wide horizontalaspectratio144:40. Warm brown leather inset, dark brown insetbevel frame thin antique goldborder, presseddepressed state with subtlydarkercenter upperedge shadow. Calmemptycenter for text. No text noicons nosymbols. Crisp pixel-art1990sstrategygame aesthetic. Exactlyonebutton fillscanvasedge toedge nomargins no perspective. Requested144x40.",
+    "generator": "built-in imagegen"
+  },
+  {
+    "name": "button-disabled",
+    "prompt": "Blank single medieval fantasy game UI button bitmap wide horizontalaspectratio144:40. Muted desaturated brown-grey leather inset, darkbrown subdued bevel frame dim antique bronze border, disabled state. Calm emptycenter for text. No text noicons nosymbols. Crisp pixel-art1990sstrategygame aesthetic. Exactlyonebutton fillscanvasedge toedge nomargins noperspective. Requested144x40.",
+    "generator": "built-in imagegen"
+  }
+]

@@ -59,6 +59,7 @@
 #include "settings.h"
 #include "smk_decoder.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_text.h"
@@ -198,6 +199,24 @@ fheroes2::GameMode Game::NewSuccessionWarsCampaign()
     Campaign::CampaignSaveData & campaignSaveData = Campaign::CampaignSaveData::Get();
     campaignSaveData.reset();
 
+#if defined( TARGET_NINTENDO_3DS )
+    fheroes2::drawMainMenuScreen();
+    {
+        auto & menuDisplay = fheroes2::Display::instance();
+        fheroes2::Image titleArt( 320, 240 );
+        titleArt._disableTransformLayer();
+        fheroes2::Resize( menuDisplay, titleArt );
+        fheroes2::Fill( menuDisplay, 0, 0, 400, 240, 0 );
+        fheroes2::Copy( titleArt, 0, 0, menuDisplay, 40, 0, 320, 240 );
+    }
+    const int lord = fheroes2::show3DSMenu( _( "Choose your Lord" ), { _( "Roland" ), _( "Archibald" ) } );
+    if ( lord < 0 ) {
+        return fheroes2::GameMode::NEW_GAME;
+    }
+    campaignSaveData.setCurrentScenarioInfo( { lord == 0 ? Campaign::ROLAND_CAMPAIGN : Campaign::ARCHIBALD_CAMPAIGN, 0 } );
+    return fheroes2::GameMode::SELECT_CAMPAIGN_SCENARIO;
+#endif
+
     std::unique_ptr<SMKVideoSequence> video = getVideo( "CHOOSE.SMK" );
     if ( !video ) {
         showMissingVideoFilesWindow();
@@ -290,6 +309,27 @@ fheroes2::GameMode Game::NewPriceOfLoyaltyCampaign()
     Campaign::CampaignSaveData & campaignSaveData = Campaign::CampaignSaveData::Get();
     campaignSaveData.reset();
     campaignSaveData.setCurrentScenarioInfo( { Campaign::PRICE_OF_LOYALTY_CAMPAIGN, 0 } );
+
+#if defined( TARGET_NINTENDO_3DS )
+    Settings::Get().SetGameType( Game::TYPE_CAMPAIGN );
+    fheroes2::drawMainMenuScreen();
+    {
+        auto & menuDisplay = fheroes2::Display::instance();
+        fheroes2::Image titleArt( 320, 240 );
+        titleArt._disableTransformLayer();
+        fheroes2::Resize( menuDisplay, titleArt );
+        fheroes2::Fill( menuDisplay, 0, 0, 400, 240, 0 );
+        fheroes2::Copy( titleArt, 0, 0, menuDisplay, 40, 0, 320, 240 );
+    }
+    const int campaign
+        = fheroes2::show3DSMenu( _( "Select your campaign" ), { _( "The Price of Loyalty" ), _( "Voyage Home" ), _( "Wizard's Isle" ), _( "Descendants" ) } );
+    if ( campaign < 0 ) {
+        return fheroes2::GameMode::NEW_GAME;
+    }
+    const int campaigns[] = { Campaign::PRICE_OF_LOYALTY_CAMPAIGN, Campaign::VOYAGE_HOME_CAMPAIGN, Campaign::WIZARDS_ISLE_CAMPAIGN, Campaign::DESCENDANTS_CAMPAIGN };
+    campaignSaveData.setCurrentScenarioInfo( { campaigns[campaign], 0 } );
+    return fheroes2::GameMode::SELECT_CAMPAIGN_SCENARIO;
+#endif
 
     std::array<std::unique_ptr<SMKVideoSequence>, 4> videos{ getVideo( "IVYPOL.SMK" ), getVideo( "IVYVOY.SMK" ), getVideo( "IVYWIZ.SMK" ), getVideo( "IVYDES.SMK" ) };
 
@@ -429,6 +469,62 @@ fheroes2::GameMode Game::NewGame( const bool isProbablyDemoVersion )
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 
     fheroes2::drawMainMenuScreen();
+
+#if defined( TARGET_NINTENDO_3DS )
+    // Keep the entire original title artwork with its existing aspect ratio.
+    // Native menu scopes subsequently display these top-screen pixels 1:1.
+    {
+        auto & menuDisplay = fheroes2::Display::instance();
+        fheroes2::Image titleArt( 320, 240 );
+        titleArt._disableTransformLayer();
+        fheroes2::Resize( menuDisplay, titleArt );
+        fheroes2::Fill( menuDisplay, 0, 0, 400, 240, 0 );
+        fheroes2::Copy( titleArt, 0, 0, menuDisplay, 40, 0, 320, 240 );
+    }
+
+    if ( isProbablyDemoVersion ) {
+        fheroes2::showStandardTextMessage( _( "Warning" ), _( "Only one scenario is available when using the demo game data." ), Dialog::OK );
+    }
+    while ( true ) {
+        const int choice
+            = fheroes2::show3DSMenu( _( "New Game" ), { _( "Standard Game" ), _( "Campaign Game" ), _( "Multi-Player Game" ), _( "Battle Only" ), _( "Settings" ) },
+                                     { true, isSuccessionWarsCampaignPresent(), true, true, true } );
+        if ( choice < 0 ) {
+            return fheroes2::GameMode::MAIN_MENU;
+        }
+        if ( choice == 0 ) {
+            return fheroes2::GameMode::NEW_STANDARD;
+        }
+        if ( choice == 3 ) {
+            return fheroes2::GameMode::NEW_BATTLE_ONLY;
+        }
+        if ( choice == 4 ) {
+            fheroes2::openGameSettings();
+            return fheroes2::GameMode::MAIN_MENU;
+        }
+        if ( choice == 1 ) {
+            if ( !isPriceOfLoyaltyCampaignPresent() ) {
+                return fheroes2::GameMode::NEW_SUCCESSION_WARS_CAMPAIGN;
+            }
+            const int campaign = fheroes2::show3DSMenu( _( "Campaign Game" ), { _( "The Succession Wars" ), _( "The Price of Loyalty" ) } );
+            if ( campaign == 0 ) {
+                return fheroes2::GameMode::NEW_SUCCESSION_WARS_CAMPAIGN;
+            }
+            if ( campaign == 1 ) {
+                return fheroes2::GameMode::NEW_PRICE_OF_LOYALTY_CAMPAIGN;
+            }
+        }
+        if ( choice == 2 ) {
+            if ( fheroes2::show3DSMenu( _( "Multi-Player Game" ), { _( "Hot Seat" ) } ) < 0 ) {
+                continue;
+            }
+            const int count = fheroes2::show3DSMenu( _( "Players" ), { "2", "3", "4", "5", "6" } );
+            if ( count >= 0 ) {
+                return NewHotSeat( static_cast<size_t>( count ) );
+            }
+        }
+    }
+#endif
 
     // Setup dialog from buttons.
     const int menuButtonsIcnIndex = Settings::Get().isEvilInterfaceEnabled() ? ICN::BUTTONS_NEW_GAME_MENU_EVIL : ICN::BUTTONS_NEW_GAME_MENU_GOOD;

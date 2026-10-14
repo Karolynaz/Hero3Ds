@@ -20,11 +20,13 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "image.h"
@@ -47,8 +49,45 @@ namespace fheroes2
     Rect get3DSBattleFooter();
     Point map3DSBattleTouch( Point bottomPoint );
     const uint8_t * get3DSBattleSnapshot();
-    void push3DSStandardLayout();
     void pop3DSStandardLayout();
+    void push3DSNativeDialog( bool topOverlay );
+    bool is3DSNativeDialog();
+    size_t get3DSDialogScopeId();
+    void set3DSNativeDialogEnabled( bool enabled );
+    bool is3DSDialogClosable();
+    void set3DSDialogClosable( bool enabled );
+    void set3DSDialogCancelable( bool enabled );
+    void set3DSNativeDialogTopOverlay( bool enabled );
+    void register3DSDialogROI( Rect logicalWindow );
+    Rect get3DSDialogViewport();
+    void pan3DSDialogViewport( Point delta );
+    Point map3DSDialogTouch( Point bottomPoint );
+    const uint8_t * get3DSDialogFrozenTop();
+    bool has3DSDialogTopOverlay();
+    void set3DSDialogDimBackground( bool enabled );
+    bool get3DSDialogDimBackground();
+    void register3DSDialogButton( const void * id, Rect area, bool enabled );
+    void unregister3DSDialogButton( const void * id );
+    std::vector<std::pair<const void *, Rect>> get3DSDialogButtons();
+    const void * get3DSDialogFocus();
+    void set3DSDialogFocus( const void * id );
+    void focus3DSDialogButton( Rect area );
+    Rect get3DSDialogFocusRect();
+    class Scope3DSNativeDialog final
+    {
+    public:
+        explicit Scope3DSNativeDialog( bool topOverlay = false )
+        {
+            push3DSNativeDialog( topOverlay );
+        }
+        ~Scope3DSNativeDialog()
+        {
+            pop3DSStandardLayout();
+        }
+        Scope3DSNativeDialog( const Scope3DSNativeDialog & ) = delete;
+        Scope3DSNativeDialog & operator=( const Scope3DSNativeDialog & ) = delete;
+    };
+    void push3DSStandardLayout();
     const uint8_t * get3DSAdventureSnapshot();
 
     // Restore the previous layout after a modal window, including nested dialogs.

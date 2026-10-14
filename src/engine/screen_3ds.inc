@@ -89,8 +89,13 @@ protected:
         const auto camera = fheroes2::get3DSBattleCamera();
         const auto footer = fheroes2::get3DSBattleFooter();
         const fheroes2::threeDS::BattleFrame battle{ fheroes2::is3DSBattleView(), camera.x, camera.y, footer.y, footer.height, fheroes2::get3DSBattleSnapshot() };
+        const auto viewport = fheroes2::get3DSDialogViewport();
+        const auto focus = fheroes2::get3DSDialogFocusRect();
+        const fheroes2::threeDS::DialogFrame
+            dialog{ fheroes2::get3DSDialogFrozenTop(),    fheroes2::has3DSDialogTopOverlay(), viewport.x, viewport.y, focus.x, focus.y, focus.width, focus.height,
+                    fheroes2::get3DSDialogDimBackground() };
         fheroes2::threeDS::renderFramebuffers( display.image(), display.width(), display.height(), colors, top, bottom, fheroes2::is3DSAdventureLayout(),
-                                               fheroes2::get3DSAdventureSnapshot(), &battle );
+                                               fheroes2::get3DSAdventureSnapshot(), &battle, &dialog );
         gfxFlushBuffers();
         gfxSwapBuffers();
         if ( _vsync )

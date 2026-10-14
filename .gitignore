@@ -117,3 +117,10 @@ fheroes2.wasm.map
 /platform/3ds/*.smdh
 /platform/3ds/*.elf
 /platform/3ds/**/__pycache__/
+
+# Local original Heroes II graphics exported for UI work
+/ui-assets/
+
+# Numbered local 3DS builds and generated editable UI masters
+/builds/
+/new UI elements/source/

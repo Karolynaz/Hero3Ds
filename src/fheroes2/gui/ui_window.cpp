@@ -19,6 +19,9 @@
  ***************************************************************************/
 
 #include "ui_window.h"
+#if defined( TARGET_NINTENDO_3DS )
+#include "ui_3ds.h"
+#endif
 
 #include <algorithm>
 #include <cassert>
@@ -144,6 +147,15 @@ namespace fheroes2
 
     void StandardWindow::render()
     {
+#if defined( TARGET_NINTENDO_3DS )
+        if ( &_output == &Display::instance() ) {
+            register3DSDialogROI( _activeArea );
+            if ( is3DSNativeDialog() ) {
+                draw3DSPanel( _windowArea );
+                return;
+            }
+        }
+#endif
         const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
 
         // Notice: ICN::SURDRBKE and ICN::SURDRBKG has 16 (equals to borderWidthPx) pixels shadow from the left and the bottom sides.

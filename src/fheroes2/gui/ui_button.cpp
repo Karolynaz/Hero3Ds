@@ -373,8 +373,30 @@ namespace
 
 namespace fheroes2
 {
+    ButtonBase::~ButtonBase()
+    {
+#if defined( TARGET_NINTENDO_3DS )
+        unregister3DSDialogButton( this );
+#endif
+    }
+
+    void ButtonBase::_update3DSDialogRegistration() const
+    {
+#if defined( TARGET_NINTENDO_3DS )
+        if ( !isVisible() || !isEnabled() ) {
+            unregister3DSDialogButton( this );
+        }
+        else if ( is3DSNativeDialog() ) {
+            register3DSDialogButton( this, area(), true );
+        }
+#endif
+    }
+
     bool ButtonBase::draw( Image & output ) const
     {
+        if ( &output == &Display::instance() ) {
+            _update3DSDialogRegistration();
+        }
         if ( !isVisible() ) {
             return false;
         }
@@ -465,6 +487,11 @@ namespace fheroes2
 
     const Sprite & ButtonSprite::_getReleased() const
     {
+#if defined( TARGET_NINTENDO_3DS )
+        if ( isEnabled() && !_focused.empty() && is3DSNativeDialog() && get3DSDialogFocus() == this ) {
+            return _focused;
+        }
+#endif
         return _released;
     }
 

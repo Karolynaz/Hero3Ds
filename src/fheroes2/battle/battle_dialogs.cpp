@@ -65,6 +65,7 @@
 #include "settings.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_language.h"
@@ -481,6 +482,122 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
         assert( 0 );
         return false;
     }
+
+#if defined( TARGET_NINTENDO_3DS )
+    {
+        const fheroes2::Scope3DSNativeDialog nativeDialog( true );
+        auto & display = fheroes2::Display::instance();
+        Cursor::Get().SetThemes( Cursor::POINTER );
+        LoopedAnimationSequence sequence;
+        std::string title, surrenderText, outcomeText;
+        const bool attackerWins = ( res.attacker & RESULT_WINS ) && attackerIsHuman;
+        const bool defenderWins = ( res.defender & RESULT_WINS ) && defenderIsHuman;
+        if ( attackerWins || ( !defenderWins && attackerIsHuman ) ) {
+            GetSummaryParams( res.attacker, res.defender, _attackingArmy->GetCommander(), res.attackerExperience, attackerWins ? _defendingArmy->GetSurrenderCost() : 0,
+                              sequence, title, surrenderText, outcomeText );
+        }
+        else {
+            GetSummaryParams( res.defender, res.attacker, _defendingArmy->GetCommander(), res.defenderExperience, defenderWins ? _attackingArmy->GetSurrenderCost() : 0,
+                              sequence, title, surrenderText, outcomeText );
+        }
+        AudioManager::PlayMusic( attackerWins || defenderWins ? MUS::BATTLEWIN : MUS::BATTLELOSE, Music::PlaybackMode::PLAY_ONCE );
+        if ( sequence.isFinished() ) {
+            sequence.push( ICN::WINCMBT, true );
+        }
+        sequence.push( ICN::WINCMBT, true );
+        fheroes2::draw3DSPanel( { 10, 10, 380, 220 } );
+        fheroes2::draw3DSPanel( { 0, 240, 320, 240 } );
+        fheroes2::Text( title, fheroes2::FontType::normalWhite() ).draw( 12, 248, 296, display );
+        std::string outcome = surrenderText;
+        if ( !outcome.empty() && !outcomeText.empty() ) {
+            outcome += "\n";
+        }
+        outcome += outcomeText;
+        const fheroes2::Text outcomeLabel( outcome, fheroes2::FontType::normalWhite() );
+        const bool showOutcomeDetails = outcomeLabel.height( 296 ) > 38;
+        if ( showOutcomeDetails ) {
+            fheroes2::Text( _( "Details after closing this screen." ), fheroes2::FontType::normalWhite() ).draw( 12, 272, 296, display );
+        }
+        else {
+            outcomeLabel.draw( 12, 272, 296, display );
+        }
+        const auto drawCasualties = [&]( const Troops & troops, const char * label, const int32_t y ) {
+            fheroes2::Text( label, fheroes2::FontType::normalWhite() ).draw( 12, y, 296, display );
+            if ( troops.isValid() ) {
+                Army::drawSingleDetailedMonsterLine( troops, 12, y + 20, 296 );
+            }
+            else {
+                fheroes2::Text( _( "None" ), fheroes2::FontType::normalWhite() ).draw( 12, y + 22, 296, display );
+            }
+        };
+        drawCasualties( _attackingArmy->GetKilledTroops(), _( "Attacker" ), 316 );
+        drawCasualties( _defendingArmy->GetKilledTroops(), _( "Defender" ), 376 );
+        auto buttonOk = fheroes2::make3DSButton( _( "Okay" ), allowToRestart ? fheroes2::Rect{ 12, 442, 140, 30 } : fheroes2::Rect{ 60, 442, 200, 30 } );
+        auto buttonRestart = fheroes2::make3DSButton( _( "Restart" ), { 168, 442, 140, 30 } );
+        const auto renderAnimation = [&]() {
+            const auto & base = Assets::getImage( sequence.id(), 0 );
+            if ( base.empty() ) {
+                return;
+            }
+            fheroes2::Image frame( base.width(), base.height() );
+            frame._disableTransformLayer();
+            fheroes2::Copy( base, 0, 0, frame, 0, 0, base.width(), base.height() );
+            const auto & sprite = Assets::getImage( sequence.id(), sequence.frameId() );
+            fheroes2::Blit( sprite, frame, sprite.x(), sprite.y() );
+            fheroes2::Image enlarged( 368, 208 );
+            enlarged._disableTransformLayer();
+            fheroes2::Resize( frame, enlarged );
+            fheroes2::Copy( enlarged, 0, 0, display, 16, 16, 368, 208 );
+        };
+        renderAnimation();
+        buttonOk.draw();
+        if ( allowToRestart ) {
+            buttonRestart.draw();
+        }
+        display.render();
+        auto & le = LocalEvent::Get();
+        while ( le.HandleEvents() ) {
+            buttonOk.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonOk.area() ) );
+            if ( allowToRestart ) {
+                buttonRestart.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonRestart.area() ) );
+                if ( le.MouseClickLeft( buttonRestart.area() ) ) {
+                    return true;
+                }
+            }
+            if ( le.MouseClickLeft( buttonOk.area() ) || Game::HotKeyCloseWindow() ) {
+                break;
+            }
+            if ( Game::validateAnimationDelay( Game::DelayType::BATTLE_DIALOG_DELAY ) && !sequence.nextFrame() ) {
+                renderAnimation();
+                display.render();
+            }
+        }
+        if ( showOutcomeDetails ) {
+            fheroes2::showStandardTextMessage( title, outcome, Dialog::OK );
+        }
+        // Artifact ownership is transferred by the battle logic. Preserve its
+        // original per-artifact announcements after acknowledging the result.
+        const HeroBase * winner = res.attacker & RESULT_WINS ? _attackingArmy->GetCommander() : _defendingArmy->GetCommander();
+        const HeroBase * loser = res.attacker & RESULT_LOSS ? _attackingArmy->GetCommander() : _defendingArmy->GetCommander();
+        if ( winner && loser ) {
+            for ( const Artifact & art : artifacts ) {
+                if ( !winner->isControlHuman() && !art.isUltimate() ) {
+                    continue;
+                }
+                std::string message = art.isUltimate() ? ( winner->isControlHuman() ? _( "As you reach for the %{name}, it mysteriously disappears." )
+                                                                                    : _( "As your enemy reaches for the %{name}, it mysteriously disappears." ) )
+                                                       : _( "You have captured an enemy artifact!" );
+                StringReplace( message, "%{name}", art.GetName() );
+                if ( !art.isUltimate() ) {
+                    Game::PlayPickupSound();
+                }
+                const fheroes2::ArtifactDialogElement artifactUI( art );
+                fheroes2::showStandardTextMessage( art.GetName(), message, Dialog::OK, { &artifactUI } );
+            }
+        }
+        return false;
+    }
+#endif
 
     fheroes2::Display & display = fheroes2::Display::instance();
 

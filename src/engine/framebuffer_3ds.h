@@ -40,6 +40,15 @@ namespace fheroes2::threeDS
         const uint8_t * modalSnapshot{ nullptr };
     };
 
+    struct DialogFrame
+    {
+        const uint8_t * frozenTop{ nullptr }; // Packed 400x240 indexed pixels.
+        bool topOverlay{ false };
+        int cropX{ 0 }, cropY{ 240 };
+        int focusX{ 0 }, focusY{ 0 }, focusWidth{ 0 }, focusHeight{ 0 };
+        bool dimBackground{ true };
+    };
+
     // Prepare a coherent full-size modal background from the visible upper
     // adventure screen. Never sample hidden canvas pixels left by the menu.
     inline void prepareModalCanvas( const uint8_t * snapshot, uint8_t * output, const int width, const int height )
@@ -58,7 +67,8 @@ namespace fheroes2::threeDS
     // The palette is already remapped for color cycling, in packed 0xRRGGBB.
     // Output uses libctru's rotated, column-major BGR8 framebuffer format.
     inline void renderFramebuffers( const uint8_t * image, const int imageWidth, const int imageHeight, const std::array<uint32_t, 256> & palette, uint8_t * top,
-                                    uint8_t * bottom, const bool adventure, const uint8_t * adventureSnapshot = nullptr, const BattleFrame * battle = nullptr )
+                                    uint8_t * bottom, const bool adventure, const uint8_t * adventureSnapshot = nullptr, const BattleFrame * battle = nullptr,
+                                    const DialogFrame * dialog = nullptr )
     {
         std::fill( top, top + topFramebufferBytes, 0 );
         std::fill( bottom, bottom + bottomFramebufferBytes, 0 );
@@ -95,7 +105,52 @@ namespace fheroes2::threeDS
                       }
                   }
               };
-        if ( battle && ( battle->nativeView || battle->modalSnapshot ) ) {
+        if ( dialog && dialog->frozenTop ) {
+            if ( dialog->topOverlay )
+                copyNative( top, 0, 0, 400, 240, 0, image );
+            else
+                for ( int x = 0; x < 400; ++x )
+                    for ( int y = 0; y < 240; ++y ) {
+                        const auto color = palette[dialog->frozenTop[y * 400 + x]];
+                        const size_t offset = static_cast<size_t>( x * 240 + 239 - y ) * 3;
+                        top[offset] = static_cast<uint8_t>( color );
+                        top[offset + 1] = static_cast<uint8_t>( color >> 8 );
+                        top[offset + 2] = static_cast<uint8_t>( color >> 16 );
+                    }
+            if ( dialog->dimBackground ) {
+                for ( int x = 0; x < 400; ++x )
+                    for ( int y = 0; y < 240; ++y ) {
+                        // An authored top panel is foreground; only its backdrop
+                        // is darkened. Indexed canvas and shared palette stay intact.
+                        if ( dialog->topOverlay && x >= 10 && x < 390 && y >= 10 && y < 230 )
+                            continue;
+                        const size_t offset = static_cast<size_t>( x * 240 + 239 - y ) * 3;
+                        for ( size_t channel = 0; channel < 3; ++channel )
+                            top[offset + channel] = static_cast<uint8_t>( static_cast<unsigned>( top[offset + channel] ) * 55 / 100 );
+                    }
+            }
+            copyNative( bottom, dialog->cropX, dialog->cropY, 320, 240, 0, image );
+            if ( dialog->focusWidth > 0 && dialog->focusHeight > 0 ) {
+                const int left = dialog->focusX - dialog->cropX, upper = dialog->focusY - dialog->cropY;
+                const auto highlight = [&]( const int x, const int y ) {
+                    if ( x < 0 || x >= 320 || y < 0 || y >= 240 )
+                        return;
+                    const size_t offset = static_cast<size_t>( x * 240 + 239 - y ) * 3;
+                    bottom[offset] = 32;
+                    bottom[offset + 1] = 240;
+                    bottom[offset + 2] = 255;
+                };
+                for ( int x = left; x < left + dialog->focusWidth; ++x ) {
+                    highlight( x, upper );
+                    highlight( x, upper + dialog->focusHeight - 1 );
+                }
+                for ( int y = upper; y < upper + dialog->focusHeight; ++y ) {
+                    highlight( left, y );
+                    highlight( left + dialog->focusWidth - 1, y );
+                }
+            }
+        }
+        else if ( battle && ( battle->nativeView || battle->modalSnapshot ) ) {
             if ( battle->nativeView )
                 copyNative( top, battle->cameraX, battle->cameraY, 400, 240, 0, image );
             else

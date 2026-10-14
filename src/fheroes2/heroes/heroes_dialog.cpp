@@ -22,6 +22,7 @@
  ***************************************************************************/
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <functional>
@@ -59,6 +60,7 @@
 #include "statusbar.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_constants.h"
 #include "ui_dialog.h"
@@ -75,6 +77,118 @@ namespace
 int Heroes::OpenDialog( const bool readonly, const bool fade, const bool disableDismiss, const bool disableSwitch, const bool renderBackgroundDialog, const bool isEditor,
                         const fheroes2::SupportedLanguage language )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    if ( !isEditor ) {
+        const fheroes2::Scope3DSNativeDialog nativeDialog( true );
+        Cursor::Get().SetThemes( Cursor::POINTER );
+        auto & display = fheroes2::Display::instance();
+        fheroes2::draw3DSPanel( { 10, 10, 380, 220 }, GetName() );
+        fheroes2::draw3DSPanel( { 0, 240, 320, 240 }, _( "Hero" ) );
+        PortraitRedraw( 28, 45, PORT_BIG, display );
+        const auto drawStats = [&]() {
+            fheroes2::Fill( display, 140, 44, 230, 100, fheroes2::GetColorId( 0x51, 0x31, 0x18 ) );
+            const std::array<std::string, 4> stats{ std::string( _( "Attack" ) ) + ": " + std::to_string( GetAttack() ),
+                                                    std::string( _( "Defense" ) ) + ": " + std::to_string( GetDefense() ),
+                                                    std::string( _( "Spell Power" ) ) + ": " + std::to_string( GetPower() ),
+                                                    std::string( _( "Knowledge" ) ) + ": " + std::to_string( GetKnowledge() ) };
+            for ( size_t index = 0; index < stats.size(); ++index ) {
+                fheroes2::Text( stats[index], fheroes2::FontType::normalWhite() ).draw( 144, 46 + static_cast<int32_t>( index ) * 22, 220, display );
+            }
+            fheroes2::Fill( display, 26, 142, 348, 22, fheroes2::GetColorId( 0x51, 0x31, 0x18 ) );
+            const std::string points = std::string( _( "Spell Points" ) ) + ": " + std::to_string( GetSpellPoints() ) + "/" + std::to_string( GetMaxSpellPoints() );
+            fheroes2::Text( std::string( _( "Level" ) ) + ": " + std::to_string( GetLevel() ), fheroes2::FontType::normalWhite() ).draw( 28, 144, 110, display );
+            fheroes2::Text( points, fheroes2::FontType::normalWhite() ).draw( 144, 144, 228, display );
+            fheroes2::Fill( display, 26, 208, 348, 18, fheroes2::GetColorId( 0x51, 0x31, 0x18 ) );
+            const std::string traits = std::string( _( "Morale" ) ) + ": " + std::to_string( GetMorale() ) + "   " + _( "Luck" ) + ": " + std::to_string( GetLuck() );
+            fheroes2::Text( traits, fheroes2::FontType::normalWhite() ).draw( 28, 210, 344, display );
+        };
+        drawStats();
+        SecondarySkillsBar secondarySkills( *this, true, false, false );
+        secondarySkills.setTableSize( { 8, 1 } );
+        secondarySkills.setInBetweenItemsOffset( { 2, 0 } );
+        secondarySkills.SetContent( _secondarySkills.ToVector() );
+        secondarySkills.setRenderingOffset( { 50, 172 } );
+        secondarySkills.Redraw( display );
+        ArmyBar army( &_army, true, readonly, false, true );
+        army.setTableSize( { 5, 1 } );
+        army.setInBetweenItemsOffset( { 9, 0 } );
+        army.setRenderingOffset( { 34, 268 } );
+        army.Redraw( display );
+        fheroes2::Text( _( "Artifacts" ), fheroes2::FontType::normalWhite() ).draw( 12, 315, 296, display );
+        StatusBar status;
+        status.setRoi( { 12, 416, 296, 0 } );
+        // Use the original miniature assets at their native size. All fourteen
+        // inventory slots remain visible and refer to the original hero bag.
+        ArtifactsBar artifacts( this, true, readonly, false, true, &status );
+        artifacts.setTableSize( { 7, 2 } );
+        artifacts.setInBetweenItemsOffset( { 7, 6 } );
+        artifacts.SetContent( GetBagArtifacts() );
+        artifacts.setRenderingOffset( { 20, 337 } );
+        artifacts.Redraw( display );
+        std::array<uint8_t, 19> cellIds{};
+        for ( size_t index = 0; index < 5; ++index ) {
+            fheroes2::register3DSDialogButton( &cellIds[index], { 34 + static_cast<int32_t>( index ) * 52, 268, 43, 43 }, true );
+        }
+        for ( size_t index = 0; index < 14; ++index ) {
+            fheroes2::register3DSDialogButton( &cellIds[5 + index], { 20 + static_cast<int32_t>( index % 7 ) * 41, 337 + static_cast<int32_t>( index / 7 ) * 40, 34, 34 },
+                                               true );
+        }
+        auto previous = fheroes2::make3DSButton( _( "Prev" ), { 7, 440, 72, 34 } );
+        auto next = fheroes2::make3DSButton( _( "Next" ), { 85, 440, 72, 34 } );
+        auto dismiss = fheroes2::make3DSButton( _( "Dismiss" ), { 163, 440, 72, 34 } );
+        auto exit = fheroes2::make3DSButton( _( "Exit" ), { 241, 440, 72, 34 } );
+        if ( readonly || disableSwitch || GetKingdom().GetHeroes().size() < 2 ) {
+            previous.disable();
+            next.disable();
+        }
+        if ( readonly || disableDismiss || inCastle() || Modes( NOTDISMISS ) ) {
+            dismiss.disable();
+        }
+        previous.draw();
+        next.draw();
+        dismiss.draw();
+        exit.draw();
+        display.render();
+        auto & le = LocalEvent::Get();
+        while ( le.HandleEvents() ) {
+            previous.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( previous.area() ) );
+            next.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( next.area() ) );
+            dismiss.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( dismiss.area() ) );
+            exit.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( exit.area() ) );
+            if ( Game::HotKeyCloseWindow() || le.MouseClickLeft( exit.area() ) ) {
+                return Dialog::CANCEL;
+            }
+            if ( previous.isEnabled() && le.MouseClickLeft( previous.area() ) ) {
+                return Dialog::PREV;
+            }
+            if ( next.isEnabled() && le.MouseClickLeft( next.area() ) ) {
+                return Dialog::NEXT;
+            }
+            if ( dismiss.isEnabled() && le.MouseClickLeft( dismiss.area() )
+                 && fheroes2::showStandardTextMessage( GetName(), _( "Are you sure you want to dismiss this Hero?" ), Dialog::YES | Dialog::NO ) == Dialog::YES ) {
+                return Dialog::DISMISS;
+            }
+            std::string message;
+            bool changed = false;
+            if ( le.isMouseCursorPosInArea( army.GetArea() ) && army.QueueEventProcessing( &message ) ) {
+                artifacts.ResetSelected();
+                army.Redraw( display );
+                changed = true;
+            }
+            else if ( le.isMouseCursorPosInArea( artifacts.GetArea() ) && artifacts.QueueEventProcessing( &message ) ) {
+                army.ResetSelected();
+                artifacts.Redraw( display );
+                changed = true;
+            }
+            if ( changed ) {
+                drawStats();
+                display.render();
+            }
+        }
+        return Dialog::CANCEL;
+    }
+#endif
+
     // Set the cursor image.This dialog does not require a cursor restorer. It is called from other dialogs that have the same cursor
     // or from the Game Area that will set the appropriate cursor after this dialog is closed.
     Cursor::Get().SetThemes( Cursor::POINTER );

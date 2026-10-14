@@ -46,6 +46,9 @@
 #include "translations.h"
 #include "ui_dialog.h"
 #include "ui_text.h"
+#if defined( TARGET_NINTENDO_3DS )
+#include "ui_3ds.h"
+#endif
 
 namespace
 {
@@ -219,6 +222,131 @@ Spell SpellBook::Open( const HeroBase & hero, const Filter displayableSpells, co
     if ( _startSpellIndex >= displayedSpells.size() ) {
         _startSpellIndex = 0;
     }
+
+#if defined( TARGET_NINTENDO_3DS )
+    {
+        fheroes2::Display & nativeDisplay = fheroes2::Display::instance();
+        const fheroes2::Scope3DSNativeDialog nativeScope;
+        fheroes2::set3DSDialogCancelable( true );
+        const CursorRestorer nativeCursor( true, Cursor::POINTER );
+        LocalEvent & nativeEvents = LocalEvent::Get();
+        constexpr size_t nativePageSize = 6;
+        _startSpellIndex = ( _startSpellIndex / nativePageSize ) * nativePageSize;
+        bool nativeClosed = false;
+        int lastNativeStatusSpell = Spell::NONE;
+        while ( !nativeClosed ) {
+            fheroes2::draw3DSPanel( { 0, 240, 320, 240 }, _spellFilter == Filter::CMBT ? _( "Combat Spells" ) : _( "Adventure Spells" ) );
+            const std::string mana = std::to_string( hero.GetSpellPoints() ) + "/" + std::to_string( hero.GetMaxSpellPoints() );
+            fheroes2::Text( mana, fheroes2::FontType::normalWhite() ).draw( 245, 246, nativeDisplay );
+            auto adventure = fheroes2::make3DSButton( _( "Adventure" ), { 6, 264, 150, 22 } );
+            auto combat = fheroes2::make3DSButton( _( "Combat" ), { 164, 264, 150, 22 } );
+            if ( displayableSpells == Filter::CMBT )
+                adventure.disable();
+            if ( displayableSpells == Filter::ADVN )
+                combat.disable();
+            std::vector<fheroes2::ButtonSprite> spellButtons;
+            const size_t shown = std::min( nativePageSize, displayedSpells.size() - _startSpellIndex );
+            spellButtons.reserve( shown );
+            for ( size_t slot = 0; slot < shown; ++slot ) {
+                const Spell & spell = displayedSpells[_startSpellIndex + slot];
+                const fheroes2::Sprite & icon = Assets::getImage( ICN::SPELLS, spell.IndexSprite() );
+                fheroes2::Sprite released( 100, 82 );
+                released.reset();
+                fheroes2::Fill( released, 0, 0, 100, 82, 31 );
+                fheroes2::Blit( icon, released, ( 100 - icon.width() ) / 2, 1 );
+                const bool available = !canCastSpell || hero.CanCastSpell( spell );
+                const auto font = available ? fheroes2::FontType::normalWhite() : fheroes2::FontType{ fheroes2::FontSize::NORMAL, fheroes2::FontColor::GRAY };
+                std::string name = spell.GetName();
+                fheroes2::Text nameText( name, font );
+                if ( nameText.width() > 98 ) {
+                    while ( !name.empty() && fheroes2::Text( name + "...", font ).width() > 98 )
+                        name.pop_back();
+                    nameText.set( name + "...", font );
+                }
+                nameText.draw( ( 100 - nameText.width() ) / 2, 49, released );
+                const fheroes2::Text cost( "[" + std::to_string( spell.spellPoints( &hero ) ) + "]", font );
+                cost.draw( ( 100 - cost.width() ) / 2, 65, released );
+                fheroes2::Sprite pressed = released;
+                fheroes2::DrawLine( pressed, { 0, 0 }, { 99, 0 }, 114 );
+                fheroes2::DrawLine( pressed, { 0, 81 }, { 99, 81 }, 114 );
+                spellButtons.emplace_back( 6 + static_cast<int32_t>( slot % 3 ) * 104, 288 + static_cast<int32_t>( slot / 3 ) * 82, std::move( released ),
+                                           std::move( pressed ) );
+                spellButtons.back().draw();
+            }
+            adventure.draw();
+            combat.draw();
+            auto previous = fheroes2::make3DSButton( "<", { 6, 454, 64, 22 } );
+            auto next = fheroes2::make3DSButton( ">", { 78, 454, 64, 22 } );
+            auto close = fheroes2::make3DSButton( _( "Close" ), { 220, 454, 94, 22 } );
+            if ( _startSpellIndex == 0 )
+                previous.disable();
+            if ( _startSpellIndex + nativePageSize >= displayedSpells.size() )
+                next.disable();
+            previous.draw();
+            next.draw();
+            close.draw();
+            const size_t pages = std::max<size_t>( 1, ( displayedSpells.size() + nativePageSize - 1 ) / nativePageSize );
+            fheroes2::Text( std::to_string( _startSpellIndex / nativePageSize + 1 ) + "/" + std::to_string( pages ), fheroes2::FontType::normalWhite() )
+                .draw( 156, 458, nativeDisplay );
+            nativeDisplay.render();
+            bool changePage = false;
+            while ( !changePage && nativeEvents.HandleEvents() ) {
+                previous.drawOnState( nativeEvents.isMouseLeftButtonPressedAndHeldInArea( previous.area() ) );
+                next.drawOnState( nativeEvents.isMouseLeftButtonPressedAndHeldInArea( next.area() ) );
+                close.drawOnState( nativeEvents.isMouseLeftButtonPressedAndHeldInArea( close.area() ) );
+                adventure.drawOnState( nativeEvents.isMouseLeftButtonPressedAndHeldInArea( adventure.area() ) );
+                combat.drawOnState( nativeEvents.isMouseLeftButtonPressedAndHeldInArea( combat.area() ) );
+                if ( nativeEvents.MouseClickLeft( close.area() ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL ) ) {
+                    nativeClosed = true;
+                    break;
+                }
+                if ( previous.isEnabled() && nativeEvents.MouseClickLeft( previous.area() ) ) {
+                    _startSpellIndex -= nativePageSize;
+                    changePage = true;
+                }
+                else if ( next.isEnabled() && nativeEvents.MouseClickLeft( next.area() ) ) {
+                    _startSpellIndex += nativePageSize;
+                    changePage = true;
+                }
+                else if ( ( adventure.isEnabled() && nativeEvents.MouseClickLeft( adventure.area() ) && _spellFilter != Filter::ADVN )
+                          || ( combat.isEnabled() && nativeEvents.MouseClickLeft( combat.area() ) && _spellFilter != Filter::CMBT ) ) {
+                    _spellFilter = nativeEvents.isMouseCursorPosInArea( adventure.area() ) ? Filter::ADVN : Filter::CMBT;
+                    displayedSpells = SetFilter( _spellFilter, &hero );
+                    _startSpellIndex = 0;
+                    changePage = true;
+                }
+                for ( size_t slot = 0; slot < spellButtons.size() && !changePage; ++slot ) {
+                    auto & button = spellButtons[slot];
+                    button.drawOnState( nativeEvents.isMouseLeftButtonPressedAndHeldInArea( button.area() ) );
+                    const Spell & spell = displayedSpells[_startSpellIndex + slot];
+                    if ( statusCallback && nativeEvents.isMouseCursorPosInArea( button.area() ) && lastNativeStatusSpell != spell.GetID() ) {
+                        // Legacy callbacks redraw a battle/hero status strip
+                        // on the same canvas. Keep the native book panel intact.
+                        fheroes2::ImageRestorer panelRestorer( nativeDisplay, 0, 240, 320, 240 );
+                        statusCallback( spell.GetName() );
+                        lastNativeStatusSpell = spell.GetID();
+                        panelRestorer.restore();
+                    }
+                    if ( nativeEvents.MouseClickLeft( button.area() ) ) {
+                        if ( canCastSpell ) {
+                            std::string explanation;
+                            if ( hero.CanCastSpell( spell, &explanation ) )
+                                return spell;
+                            fheroes2::showStandardTextMessage( spell.GetName(), explanation, Dialog::OK );
+                        }
+                        else {
+                            fheroes2::SpellDialogElement( spell, &hero ).showPopup( Dialog::OK );
+                        }
+                        nativeDisplay.render();
+                    }
+                }
+            }
+            if ( !changePage )
+                nativeClosed = true;
+        }
+        return Spell::NONE;
+    }
+#endif
 
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 

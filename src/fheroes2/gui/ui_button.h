@@ -55,7 +55,7 @@ namespace fheroes2
         ButtonBase( const ButtonBase & ) = delete;
         ButtonBase( ButtonBase && ) noexcept = default;
 
-        ~ButtonBase() override = default;
+        ~ButtonBase() override;
 
         ButtonBase & operator=( const ButtonBase & button ) = delete;
         ButtonBase & operator=( ButtonBase && ) noexcept = default;
@@ -118,6 +118,7 @@ namespace fheroes2
             notifySubscriber();
 
             _updateReleasedArea();
+            _update3DSDialogRegistration();
         }
 
         // Button becomes disabled and released
@@ -128,6 +129,7 @@ namespace fheroes2
             notifySubscriber();
 
             _updateReleasedArea();
+            _update3DSDialogRegistration();
         }
 
         // This method doesn't call draw()
@@ -135,6 +137,7 @@ namespace fheroes2
         {
             _isVisible = true;
             notifySubscriber();
+            _update3DSDialogRegistration();
         }
 
         // This method doesn't call draw()
@@ -142,6 +145,7 @@ namespace fheroes2
         {
             _isVisible = false;
             notifySubscriber();
+            _update3DSDialogRegistration();
         }
 
         void setPosition( const int32_t offsetX, const int32_t offsetY )
@@ -153,6 +157,7 @@ namespace fheroes2
 
             _offsetX = offsetX;
             _offsetY = offsetY;
+            _update3DSDialogRegistration();
         }
 
         // Will draw on screen by default
@@ -183,6 +188,8 @@ namespace fheroes2
         }
 
     protected:
+        void _update3DSDialogRegistration() const;
+
         virtual const Sprite & _getPressed() const = 0;
         virtual const Sprite & _getReleased() const = 0;
         virtual const Sprite & _getDisabled() const;
@@ -299,8 +306,14 @@ namespace fheroes2
             _released = released;
             _pressed = pressed;
             _disabled = disabled;
+            _focused = Sprite{};
 
             _updateButtonAreas();
+        }
+
+        void setFocusedSprite( Sprite focused )
+        {
+            _focused = std::move( focused );
         }
 
     protected:
@@ -309,6 +322,7 @@ namespace fheroes2
         const Sprite & _getDisabled() const override;
 
     private:
+        Sprite _focused;
         Sprite _released;
         Sprite _pressed;
         Sprite _disabled;

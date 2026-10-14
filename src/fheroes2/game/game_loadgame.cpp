@@ -45,6 +45,7 @@
 #include "screen.h"
 #include "settings.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_tool.h"
@@ -90,6 +91,36 @@ fheroes2::GameMode Game::LoadGame()
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 
     fheroes2::drawMainMenuScreen();
+
+#if defined( TARGET_NINTENDO_3DS )
+    // Keep the entire original title artwork with its existing aspect ratio.
+    // Native menu scopes subsequently display these top-screen pixels 1:1.
+    {
+        auto & menuDisplay = fheroes2::Display::instance();
+        fheroes2::Image titleArt( 320, 240 );
+        titleArt._disableTransformLayer();
+        fheroes2::Resize( menuDisplay, titleArt );
+        fheroes2::Fill( menuDisplay, 0, 0, 400, 240, 0 );
+        fheroes2::Copy( titleArt, 0, 0, menuDisplay, 40, 0, 320, 240 );
+    }
+
+    while ( true ) {
+        int choice = fheroes2::show3DSMenu( _( "Load Game" ), { _( "Standard Game" ), _( "Campaign Game" ), _( "Multi-Player Game" ) },
+                                            { true, isSuccessionWarsCampaignPresent(), true } );
+        if ( choice < 0 ) {
+            return fheroes2::GameMode::MAIN_MENU;
+        }
+        if ( choice == 2 && fheroes2::show3DSMenu( _( "Multi-Player Game" ), { _( "Hot Seat" ) } ) < 0 ) {
+            continue;
+        }
+        const int gameType = choice == 0 ? Game::TYPE_STANDARD : ( choice == 1 ? Game::TYPE_CAMPAIGN : Game::TYPE_HOTSEAT );
+        if ( ListFiles::IsEmpty( GetSaveDir(), GetSaveFileExtension( gameType ) ) ) {
+            fheroes2::showStandardTextMessage( _( "Load Game" ), _( "No save files to load." ), Dialog::OK );
+            continue;
+        }
+        return choice == 0 ? fheroes2::GameMode::LOAD_STANDARD : ( choice == 1 ? fheroes2::GameMode::LOAD_CAMPAIGN : fheroes2::GameMode::LOAD_HOT_SEAT );
+    }
+#endif
 
     fheroes2::ButtonGroup gameModeButtons;
     const int menuButtonsIcnIndex = Settings::Get().isEvilInterfaceEnabled() ? ICN::BUTTONS_NEW_GAME_MENU_EVIL : ICN::BUTTONS_NEW_GAME_MENU_GOOD;

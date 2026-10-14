@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -47,6 +48,7 @@
 #include "spell_info.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_constants.h"
 #include "ui_keyboard.h"
@@ -64,6 +66,156 @@ namespace
     const int32_t textOffsetFromElement = 2;
 
     const int32_t defaultElementPopupButtons = Dialog::ZERO;
+
+#if defined( TARGET_NINTENDO_3DS )
+    int showNativeMessage( const fheroes2::TextBase & header, const fheroes2::TextBase & body, const int types,
+                           const std::vector<const fheroes2::DialogElement *> & elements )
+    {
+        using namespace fheroes2;
+        const DialogElement * illustration = nullptr;
+        for ( const auto * element : elements ) {
+            if ( element->area().width >= 140 && element->area().height >= 80 && element->area().width <= 360 && element->area().height <= 200 ) {
+                illustration = element;
+                break;
+            }
+        }
+        const Scope3DSNativeDialog scope( illustration != nullptr );
+        const CursorRestorer cursor( true, ::Cursor::POINTER );
+        auto & display = Display::instance();
+        if ( illustration ) {
+            draw3DSPanel( { 10, 10, 380, 220 } );
+            illustration->draw( display, { 200 - illustration->area().width / 2, 120 - illustration->area().height / 2 } );
+        }
+        Text heading( header.text(), FontType::normalYellow() );
+        Text message( body.text(), FontType::normalWhite() );
+        constexpr int width = 296;
+        int height = ( heading.empty() ? 0 : heading.height( width ) + 8 ) + ( message.empty() ? 0 : message.height( width ) + 8 );
+        std::vector<Point> positions;
+        int x = 0, rowHeight = 0;
+        int contentWidth = width;
+        for ( const auto * element : elements ) {
+            if ( element == illustration ) {
+                positions.emplace_back( -1, -1 );
+                continue;
+            }
+            const auto size = element->area();
+            if ( x && x + size.width > width ) {
+                height += rowHeight + 6;
+                rowHeight = 0;
+                x = 0;
+            }
+            positions.emplace_back( x, height );
+            contentWidth = std::max<int32_t>( contentWidth, x + size.width );
+            x += size.width + 8;
+            rowHeight = std::max<int32_t>( rowHeight, size.height );
+        }
+        height += rowHeight;
+        Image content( contentWidth, std::max<int32_t>( height, 1 ) );
+        content._disableTransformLayer();
+        content.fill( GetColorId( 62, 38, 24 ) );
+        draw3DSPanel( { 0, 240, 320, 240 } );
+        for ( int row = 0; row < content.height(); row += 164 )
+            Copy( display, 12, 246, content, 0, row, width, std::min<int32_t>( 164, content.height() - row ) );
+        int y = 0;
+        if ( !heading.empty() ) {
+            heading.draw( 0, y, width, content );
+            y += heading.height( width ) + 8;
+        }
+        if ( !message.empty() )
+            message.draw( 0, y, width, content );
+        for ( size_t i = 0; i < elements.size(); ++i )
+            if ( positions[i].x >= 0 )
+                elements[i]->draw( content, positions[i] );
+        constexpr int pageHeight = 164;
+        const int columns = std::max<int32_t>( 1, ( contentWidth + width - 1 ) / width );
+        const int pages = columns * std::max<int32_t>( 1, ( height + pageHeight - 1 ) / pageHeight );
+        int page = 0;
+        std::vector<int> values;
+        std::vector<std::string> labels;
+        for ( const auto & pair : std::vector<std::pair<int, std::string>>{ { Dialog::YES, _( "Yes" ) },
+                                                                            { Dialog::OK, _( "Okay" ) },
+                                                                            { Dialog::NO, _( "No" ) },
+                                                                            { Dialog::CANCEL, _( "Cancel" ) } } ) {
+            if ( types & pair.first ) {
+                values.push_back( pair.first );
+                labels.push_back( pair.second );
+            }
+        }
+        if ( values.empty() ) {
+            values.push_back( Dialog::ZERO );
+            labels.push_back( _( "Okay" ) );
+        }
+        const bool closable = types == 0 || ( types & ( Dialog::NO | Dialog::CANCEL ) );
+        set3DSDialogCancelable( closable );
+        std::vector<std::unique_ptr<ButtonSprite>> buttons;
+        const int buttonWidth = std::min<int32_t>( 144, ( 296 - static_cast<int>( values.size() - 1 ) * 6 ) / static_cast<int>( values.size() ) );
+        for ( size_t i = 0; i < values.size(); ++i )
+            buttons.push_back( std::make_unique<ButtonSprite>( make3DSButton( labels[i], { 12 + static_cast<int>( i ) * ( buttonWidth + 6 ), 442, buttonWidth, 28 } ) ) );
+        auto previous = make3DSButton( "<", { 12, 412, 48, 24 } );
+        auto next = make3DSButton( ">", { 260, 412, 48, 24 } );
+        const auto redraw = [&]() {
+            draw3DSPanel( { 0, 240, 320, 240 } );
+            const int pageX = ( page % columns ) * width;
+            const int pageY = ( page / columns ) * pageHeight;
+            const int amount = std::min<int32_t>( pageHeight, content.height() - pageY );
+            if ( amount > 0 )
+                Copy( content, pageX, pageY, display, 12, 246, std::min<int32_t>( width, content.width() - pageX ), amount );
+            if ( pages > 1 ) {
+                if ( page == 0 )
+                    previous.disable();
+                else
+                    previous.enable();
+                if ( page + 1 == pages )
+                    next.disable();
+                else
+                    next.enable();
+                previous.draw();
+                next.draw();
+                Text count( std::to_string( page + 1 ) + "/" + std::to_string( pages ), FontType::normalWhite() );
+                count.draw( 100, 416, 120, display );
+            }
+            for ( auto & button : buttons )
+                button->draw();
+            display.render();
+        };
+        redraw();
+        auto & events = LocalEvent::Get();
+        while ( events.HandleEvents() ) {
+            if ( closable && events.isKeyPressed( Key::KEY_ESCAPE ) )
+                return types & Dialog::CANCEL ? Dialog::CANCEL : types & Dialog::NO ? Dialog::NO : Dialog::ZERO;
+            for ( size_t i = 0; i < buttons.size(); ++i ) {
+                buttons[i]->drawOnState( events.isMouseLeftButtonPressedAndHeldInArea( buttons[i]->area() ) );
+                buttons[i]->draw();
+                if ( events.MouseClickLeft( buttons[i]->area() ) )
+                    return values[i];
+            }
+            if ( pages > 1 ) {
+                if ( page > 0 && events.MouseClickLeft( previous.area() ) ) {
+                    --page;
+                    redraw();
+                }
+                else if ( page + 1 < pages && events.MouseClickLeft( next.area() ) ) {
+                    ++page;
+                    redraw();
+                }
+            }
+            bool changed = false;
+            for ( size_t i = 0; i < elements.size(); ++i ) {
+                if ( positions[i].x < 0 )
+                    continue;
+                const int pageX = ( page % columns ) * width;
+                const int pageY = ( page / columns ) * pageHeight;
+                if ( positions[i].y >= pageY && positions[i].y + elements[i]->area().height <= pageY + pageHeight && positions[i].x >= pageX
+                     && positions[i].x + elements[i]->area().width <= pageX + width )
+                    elements[i]->processEvents( { 12 + positions[i].x - pageX, 246 + positions[i].y - pageY } );
+                changed |= elements[i]->update( content, positions[i] );
+            }
+            if ( changed )
+                redraw();
+        }
+        return Dialog::ZERO;
+    }
+#endif
 
     void outputInTextSupportMode( const fheroes2::TextBase & header, const fheroes2::TextBase & body, const int buttonTypes )
     {
@@ -93,6 +245,9 @@ namespace fheroes2
     int showMessage( const TextBase & header, const TextBase & body, const int buttons, const std::vector<const DialogElement *> & elements /* = {} */ )
     {
         outputInTextSupportMode( header, body, buttons );
+#if defined( TARGET_NINTENDO_3DS )
+        return showNativeMessage( header, body, buttons, elements );
+#endif
 
         const bool isProperDialog = ( buttons != 0 );
 

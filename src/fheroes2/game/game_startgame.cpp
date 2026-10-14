@@ -289,6 +289,7 @@ void Game::OpenCastleDialog( Castle & castle, bool updateFocus /* = true */, con
 {
 #if defined( TARGET_NINTENDO_3DS )
     const fheroes2::Scope3DSStandardLayout standardLayout;
+    fheroes2::set3DSNativeDialogEnabled( false );
 #endif
     // setup cursor
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
