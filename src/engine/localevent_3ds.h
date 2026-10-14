@@ -209,10 +209,10 @@ namespace EventProcessing
             else if ( battleView ) {
                 if ( !_wasBattleView ) {
                     const auto logical = events.getMouseCursorPos();
-                    _battlePointerPos = { std::clamp( static_cast<double>( logical.x ) * 380.0 / 640.0, 0.0, 379.0 ),
-                                          std::clamp( static_cast<double>( logical.y ) * 380.0 / 640.0 - 20.0, 0.0, 239.0 ) };
+                    _battlePointerPos = { std::clamp( static_cast<double>( logical.x ) * 400.0 / 640.0, 0.0, 399.0 ),
+                                          std::clamp( static_cast<double>( logical.y ) * 400.0 / 640.0 - 25.0, 0.0, 239.0 ) };
                 }
-                _battlePointerPos.x = fheroes2::input3DS::cursorAxis( _battlePointerPos.x, circle.dx, elapsed, 380 );
+                _battlePointerPos.x = fheroes2::input3DS::cursorAxis( _battlePointerPos.x, circle.dx, elapsed, 400 );
                 _battlePointerPos.y = fheroes2::input3DS::cursorAxis( _battlePointerPos.y, -circle.dy, elapsed, 240 );
                 const auto point = fheroes2::map3DSBattlePointer( { static_cast<int32_t>( _battlePointerPos.x ), static_cast<int32_t>( _battlePointerPos.y ) } );
                 if ( !_touchGate.active() && point != events.getMouseCursorPos() )

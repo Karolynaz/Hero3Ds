@@ -1507,8 +1507,8 @@ namespace fheroes2
     }
     Point map3DSBattlePointer( const Point viewportPoint )
     {
-        return { std::clamp<int32_t>( viewportPoint.x, 0, 379 ) * 640 / 380,
-                 std::min<int32_t>( ( std::clamp<int32_t>( viewportPoint.y, 0, 239 ) + 20 ) * 640 / 380, battle3DSFooter.y - 1 ) };
+        return { std::clamp<int32_t>( viewportPoint.x, 0, 399 ) * 640 / 400,
+                 std::min<int32_t>( ( std::clamp<int32_t>( viewportPoint.y, 0, 239 ) + 25 ) * 640 / 400, battle3DSFooter.y - 17 ) };
     }
     void set3DSBattleFooter( const Rect sourceFooter )
     {

@@ -30,16 +30,18 @@ namespace fheroes2::threeDS
     constexpr size_t topFramebufferBytes = 400 * 240 * 3;
     constexpr size_t bottomFramebufferBytes = 320 * 240 * 3;
 
-    // Uniform 380/640 scaling, ten-pixel side bars, twenty output rows
-    // cropped from the top. This mapping is shared with modal snapshots.
+    // Uniform 400/640 scaling with 25 output rows cropped from the top.
+    // Exclude ten output rows above the footer; the 240-row framebuffer
+    // clips the remaining two rows for the standard 37-source-row footer.
+    // This mapping is shared with modal snapshots.
     inline void copyBattleTopIndexed( const uint8_t * source, const int width, const int height, const int footerY, uint8_t * output )
     {
         std::fill( output, output + 400 * 240, 0 );
         for ( int y = 0; y < 240; ++y )
-            for ( int x = 0; x < 380; ++x ) {
-                const int sx = x * 640 / 380, sy = ( y + 20 ) * 640 / 380;
-                if ( sx < width && sy < height && sy < footerY )
-                    output[y * 400 + x + 10] = source[sy * width + sx];
+            for ( int x = 0; x < 400; ++x ) {
+                const int sx = x * 640 / 400, sy = ( y + 25 ) * 640 / 400;
+                if ( sx < width && sy < height && sy < footerY - 16 )
+                    output[y * 400 + x] = source[sy * width + sx];
             }
     }
 
@@ -166,12 +168,12 @@ namespace fheroes2::threeDS
         else if ( battle && ( battle->nativeView || battle->modalSnapshot ) ) {
             if ( battle->nativeView ) {
                 for ( int y = 0; y < 240; ++y )
-                    for ( int x = 0; x < 380; ++x ) {
-                        const int sx = x * 640 / 380, sy = ( y + 20 ) * 640 / 380;
-                        if ( sx >= imageWidth || sy >= imageHeight || sy >= battle->footerY )
+                    for ( int x = 0; x < 400; ++x ) {
+                        const int sx = x * 640 / 400, sy = ( y + 25 ) * 640 / 400;
+                        if ( sx >= imageWidth || sy >= imageHeight || sy >= battle->footerY - 16 )
                             continue;
                         const auto color = palette[image[static_cast<size_t>( sy ) * imageWidth + sx]];
-                        const size_t offset = static_cast<size_t>( ( x + 10 ) * 240 + 239 - y ) * 3;
+                        const size_t offset = static_cast<size_t>( x * 240 + 239 - y ) * 3;
                         top[offset] = static_cast<uint8_t>( color );
                         top[offset + 1] = static_cast<uint8_t>( color >> 8 );
                         top[offset + 2] = static_cast<uint8_t>( color >> 16 );
