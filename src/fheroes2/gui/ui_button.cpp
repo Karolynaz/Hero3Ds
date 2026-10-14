@@ -601,18 +601,33 @@ namespace fheroes2
     {
         _button.push_back( std::make_unique<Button>( offsetX, offsetY, icnId, releasedIndex, pressedIndex ) );
         _value.emplace_back( returnValue );
+#if defined( TARGET_NINTENDO_3DS )
+        if ( returnValue == Dialog::CANCEL || returnValue == Dialog::NO ) {
+            set3DSDialogCancelable( true );
+        }
+#endif
     }
 
     void ButtonGroup::createButton( const int32_t offsetX, const int32_t offsetY, Sprite released, Sprite pressed, const int returnValue )
     {
         _button.push_back( std::make_unique<ButtonSprite>( offsetX, offsetY, std::move( released ), std::move( pressed ) ) );
         _value.emplace_back( returnValue );
+#if defined( TARGET_NINTENDO_3DS )
+        if ( returnValue == Dialog::CANCEL || returnValue == Dialog::NO ) {
+            set3DSDialogCancelable( true );
+        }
+#endif
     }
 
     void ButtonGroup::addButton( ButtonSprite && button, const int returnValue )
     {
         _button.push_back( std::make_unique<ButtonSprite>( std::move( button ) ) );
         _value.emplace_back( returnValue );
+#if defined( TARGET_NINTENDO_3DS )
+        if ( returnValue == Dialog::CANCEL || returnValue == Dialog::NO ) {
+            set3DSDialogCancelable( true );
+        }
+#endif
     }
 
     void ButtonGroup::drawOnState( const LocalEvent & le ) const

@@ -1761,7 +1761,10 @@ namespace fheroes2
     {
         NativeDialogFrame frame;
         frame.scopeId = nextNativeDialogScopeId++;
-        frame.explicitLayout = explicitLayout || ( is3DSNativeDialog() && nativeDialogFrames.back().explicitLayout );
+        // A legacy child still draws at its original logical ROI, even when
+        // its parent uses authored bottom-screen coordinates. Only an explicit
+        // native scope owns the fixed (0,240) viewport.
+        frame.explicitLayout = explicitLayout;
         frame.topOverlay = overlay;
         frame.enabled = explicitLayout || is3DSNativeDialog() || is3DSAdventureLayout() || is3DSBattleView();
 #if defined( TARGET_NINTENDO_3DS )
