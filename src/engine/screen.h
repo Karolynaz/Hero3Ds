@@ -53,6 +53,7 @@ namespace fheroes2
     void pop3DSStandardLayout();
     void push3DSNativeDialog( bool topOverlay );
     bool is3DSNativeDialog();
+    bool is3DSDialogExplicitLayout();
     size_t get3DSDialogScopeId();
     void set3DSNativeDialogEnabled( bool enabled );
     bool is3DSDialogClosable();

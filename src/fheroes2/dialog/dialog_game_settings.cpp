@@ -40,6 +40,7 @@
 #include "screen.h"
 #include "settings.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_language.h"
@@ -193,6 +194,10 @@ namespace fheroes2
 {
     void openGameSettings()
     {
+#if defined( TARGET_NINTENDO_3DS )
+        show3DSSettings( false );
+        return;
+#endif
         drawMainMenuScreen();
 
         Display & display = Display::instance();

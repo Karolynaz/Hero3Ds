@@ -47,6 +47,7 @@
 #include "screen.h"
 #include "settings.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_language.h"
@@ -365,6 +366,12 @@ namespace fheroes2
 {
     void showSystemOptionsDialog()
     {
+#if defined( TARGET_NINTENDO_3DS )
+        fheroes2::show3DSSettings( true );
+        Interface::AdventureMap::Get().reset();
+        Interface::AdventureMap::Get().setRedraw( Interface::REDRAW_ALL );
+        return;
+#endif
         // We should make file writing only once.
         bool saveConfiguration = false;
         Settings & conf = Settings::Get();

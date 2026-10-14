@@ -122,7 +122,7 @@ namespace EventProcessing
             _dialogScopeId = dialogScopeId;
             const bool battleView = !nativeDialog && fheroes2::is3DSBattleView();
             const bool battleViewChanged = battleView != _wasBattleView;
-            const bool dialogFreePointer = nativeDialog && ( held & KEY_L );
+            const bool dialogFreePointer = nativeDialog && !fheroes2::is3DSDialogExplicitLayout() && ( held & KEY_L );
             if ( dialogFreePointer ) {
                 auto viewport = fheroes2::get3DSDialogViewport();
                 if ( !_wasDialogFreePointer || dialogChanged ) {
@@ -207,13 +207,38 @@ namespace EventProcessing
                 }
             }
             else if ( battleView ) {
+                auto camera = fheroes2::get3DSBattleCamera();
                 if ( !_wasBattleView ) {
                     const auto logical = events.getMouseCursorPos();
-                    _battlePointerPos = { std::clamp( static_cast<double>( logical.x ) * 400.0 / 640.0, 0.0, 399.0 ),
-                                          std::clamp( static_cast<double>( logical.y ) * 400.0 / 640.0 - 25.0, 0.0, 239.0 ) };
+                    _battlePointerPos = { std::clamp( static_cast<double>( logical.x - camera.x ), 0.0, 399.0 ),
+                                          std::clamp( static_cast<double>( logical.y - camera.y ), 0.0, 239.0 ) };
+                    _battlePanRemainder = {};
                 }
                 _battlePointerPos.x = fheroes2::input3DS::cursorAxis( _battlePointerPos.x, circle.dx, elapsed, 400 );
                 _battlePointerPos.y = fheroes2::input3DS::cursorAxis( _battlePointerPos.y, -circle.dy, elapsed, 240 );
+                const int horizontal = static_cast<int>( ( held & KEY_DRIGHT ) != 0 ) - static_cast<int>( ( held & KEY_DLEFT ) != 0 );
+                const int vertical = static_cast<int>( ( held & KEY_DDOWN ) != 0 ) - static_cast<int>( ( held & KEY_DUP ) != 0 );
+                const auto edgeVelocity = []( const double pointer, const int axis, const int extent ) {
+                    if ( ( pointer <= 0.0 && axis < -20 ) || ( pointer >= extent - 1 && axis > 20 ) ) {
+                        const double magnitude = ( std::min( std::abs( axis ), 156 ) - 20 ) * 300.0 / 136.0;
+                        return axis < 0 ? -magnitude : magnitude;
+                    }
+                    return 0.0;
+                };
+                const double velocityX = horizontal ? horizontal * 300.0 : ( _touchGate.active() ? 0.0 : edgeVelocity( _battlePointerPos.x, circle.dx, 400 ) );
+                const double velocityY = vertical ? vertical * 300.0 : ( _touchGate.active() ? 0.0 : edgeVelocity( _battlePointerPos.y, -circle.dy, 240 ) );
+                const double panElapsed = std::clamp( elapsed, 0.0, 0.05 );
+                _battlePanRemainder.x = velocityX ? _battlePanRemainder.x + velocityX * panElapsed : 0.0;
+                _battlePanRemainder.y = velocityY ? _battlePanRemainder.y + velocityY * panElapsed : 0.0;
+                const fheroes2::Point pan( static_cast<int32_t>( _battlePanRemainder.x ), static_cast<int32_t>( _battlePanRemainder.y ) );
+                _battlePanRemainder.x -= pan.x;
+                _battlePanRemainder.y -= pan.y;
+                if ( pan != fheroes2::Point() ) {
+                    fheroes2::pan3DSBattleCamera( pan );
+                    if ( camera != fheroes2::get3DSBattleCamera() ) {
+                        updateDisplay = true;
+                    }
+                }
                 const auto point = fheroes2::map3DSBattlePointer( { static_cast<int32_t>( _battlePointerPos.x ), static_cast<int32_t>( _battlePointerPos.y ) } );
                 if ( !_touchGate.active() && point != events.getMouseCursorPos() )
                     events.onMouseMotionEvent( point );
@@ -314,6 +339,7 @@ namespace EventProcessing
         fheroes2::Time _timer;
         fheroes2::Point _touch;
         fheroes2::PointBase2D<double> _battlePointerPos;
+        fheroes2::PointBase2D<double> _battlePanRemainder;
         bool _wasBattleView{ false };
         bool _wasDialogFreePointer{ false };
         fheroes2::PointBase2D<double> _dialogFreePointerPos;

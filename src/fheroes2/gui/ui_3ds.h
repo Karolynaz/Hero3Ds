@@ -29,5 +29,8 @@ namespace fheroes2
 {
     void draw3DSPanel( const Rect & area, const std::string & title = {} );
     ButtonSprite make3DSButton( const std::string & label, const Rect & area );
-    int show3DSMenu( const std::string & title, const std::vector<std::string> & labels, const std::vector<bool> & enabled = {}, bool cancel = true );
+    int show3DSMenu( const std::string & title, const std::vector<std::string> & labels, const std::vector<bool> & enabled = {}, bool cancel = true,
+                     const std::string & information = {}, int initialSelection = 0 );
+    void show3DSSettings( bool fromAdventureMap );
+    bool show3DSAudioSettings( bool fromAdventureMap );
 }

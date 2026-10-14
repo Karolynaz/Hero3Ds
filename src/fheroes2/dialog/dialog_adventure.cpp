@@ -29,6 +29,7 @@
 #include "screen.h"
 #include "settings.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_window.h"
@@ -116,6 +117,14 @@ namespace
 
 int Dialog::AdventureOptions( const bool enableDig )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    const int choice = fheroes2::show3DSMenu(
+        _( "Adventure Options" ), { _( "View World" ), _( "Puzzle" ), _( "Scenario Information" ), _( "Dig" ) }, { true, true, true, enableDig }, true,
+        _( "View the world, inspect the puzzle map, read scenario information, or dig for the ultimate artifact.\n\nDig is available when the selected hero can dig." ) );
+    const int results[] = { Dialog::WORLD, Dialog::PUZZLE, Dialog::INFO, Dialog::DIG };
+    return choice < 0 ? Dialog::CANCEL : results[choice];
+#endif
+
     const int result = selectAdventureOption( enableDig );
     return result;
 }

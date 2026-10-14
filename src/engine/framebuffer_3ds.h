@@ -30,17 +30,15 @@ namespace fheroes2::threeDS
     constexpr size_t topFramebufferBytes = 400 * 240 * 3;
     constexpr size_t bottomFramebufferBytes = 320 * 240 * 3;
 
-    // Uniform 400/640 scaling with 25 output rows cropped from the top.
-    // Exclude ten output rows above the footer; the 240-row framebuffer
-    // clips the remaining two rows for the standard 37-source-row footer.
-    // This mapping is shared with modal snapshots.
-    inline void copyBattleTopIndexed( const uint8_t * source, const int width, const int height, const int footerY, uint8_t * output )
+    // Native 400x240 battle viewport, shared with frozen modal backgrounds.
+    inline void copyBattleTopIndexed( const uint8_t * source, const int width, const int height, const int footerY, uint8_t * output, const int cameraX = 0,
+                                      const int cameraY = 0 )
     {
         std::fill( output, output + 400 * 240, 0 );
         for ( int y = 0; y < 240; ++y )
             for ( int x = 0; x < 400; ++x ) {
-                const int sx = x * 640 / 400, sy = ( y + 25 ) * 640 / 400;
-                if ( sx < width && sy < height && sy < footerY - 16 )
+                const int sx = cameraX + x, sy = cameraY + y;
+                if ( sx >= 0 && sy >= 0 && sx < width && sy < height && sy < footerY )
                     output[y * 400 + x] = source[sy * width + sx];
             }
     }
@@ -169,8 +167,8 @@ namespace fheroes2::threeDS
             if ( battle->nativeView ) {
                 for ( int y = 0; y < 240; ++y )
                     for ( int x = 0; x < 400; ++x ) {
-                        const int sx = x * 640 / 400, sy = ( y + 25 ) * 640 / 400;
-                        if ( sx >= imageWidth || sy >= imageHeight || sy >= battle->footerY - 16 )
+                        const int sx = battle->cameraX + x, sy = battle->cameraY + y;
+                        if ( sx < 0 || sy < 0 || sx >= imageWidth || sy >= imageHeight || sy >= battle->footerY )
                             continue;
                         const auto color = palette[image[static_cast<size_t>( sy ) * imageWidth + sx]];
                         const size_t offset = static_cast<size_t>( x * 240 + 239 - y ) * 3;

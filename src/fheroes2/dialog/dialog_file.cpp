@@ -33,6 +33,7 @@
 #include "screen.h"
 #include "settings.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_window.h"
@@ -153,6 +154,56 @@ namespace
 
 fheroes2::GameMode Dialog::FileOptions()
 {
+#if defined( TARGET_NINTENDO_3DS )
+    int page = 0;
+    while ( true ) {
+        const int choice
+            = fheroes2::show3DSMenu( _( "Game Options" ),
+                                     page == 0 ? std::vector<std::string>{ _( "Save Game" ), _( "Load Game" ), _( "Quick Save" ), _( "More" ) }
+                                               : std::vector<std::string>{ _( "New Game" ), _( "Quit" ), _( "Back" ) },
+                                     {}, true, _( "Save your current progress, load a saved game, or start a new game.\n\nB closes this menu and returns to the map." ) );
+        if ( choice < 0 ) {
+            return fheroes2::GameMode::CANCEL;
+        }
+        if ( page == 0 ) {
+            if ( choice == 0 ) {
+                return Interface::AdventureMap::Get().EventSaveGame();
+            }
+            if ( choice == 1 ) {
+                const auto mode = Interface::AdventureMap::Get().EventLoadGame();
+                if ( mode == fheroes2::GameMode::LOAD_GAME ) {
+                    return mode;
+                }
+            }
+            else if ( choice == 2 ) {
+                if ( !Game::QuickSave() ) {
+                    fheroes2::showStandardTextMessage( "", _( "There was an issue during saving." ), Dialog::OK );
+                }
+                return fheroes2::GameMode::CANCEL;
+            }
+            else if ( choice == 3 ) {
+                page = 1;
+            }
+        }
+        else {
+            if ( choice == 0 ) {
+                const auto mode = Interface::AdventureMap::Get().EventNewGame();
+                if ( mode == fheroes2::GameMode::NEW_GAME ) {
+                    return mode;
+                }
+            }
+            else if ( choice == 1 ) {
+                if ( Game::processExitEvent() == fheroes2::GameMode::QUIT_GAME ) {
+                    return fheroes2::GameMode::QUIT_GAME;
+                }
+            }
+            else {
+                page = 0;
+            }
+        }
+    }
+#endif
+
     const fheroes2::GameMode result = selectFileOption();
     return result;
 }

@@ -1499,16 +1499,27 @@ namespace fheroes2
     {
         return battle3DSCamera;
     }
-    void pan3DSBattleCamera( const Point )
-    { /* Fixed full-width scaled battle presentation. */
+    void pan3DSBattleCamera( const Point delta )
+    {
+        battle3DSCamera.x = std::clamp<int32_t>( battle3DSCamera.x + delta.x, 0, 240 );
+        battle3DSCamera.y = std::clamp<int32_t>( battle3DSCamera.y + delta.y, 0, std::max<int32_t>( 0, battle3DSFooter.y - 240 ) );
     }
-    void focus3DSBattleCamera( const Point )
-    { /* Every battle column is already visible. */
+    void focus3DSBattleCamera( const Point sourceCenter )
+    {
+        Point delta;
+        if ( sourceCenter.x < battle3DSCamera.x + 40 )
+            delta.x = sourceCenter.x - battle3DSCamera.x - 40;
+        else if ( sourceCenter.x >= battle3DSCamera.x + 360 )
+            delta.x = sourceCenter.x - battle3DSCamera.x - 359;
+        if ( sourceCenter.y < battle3DSCamera.y + 40 )
+            delta.y = sourceCenter.y - battle3DSCamera.y - 40;
+        else if ( sourceCenter.y >= battle3DSCamera.y + 200 )
+            delta.y = sourceCenter.y - battle3DSCamera.y - 199;
+        pan3DSBattleCamera( delta );
     }
     Point map3DSBattlePointer( const Point viewportPoint )
     {
-        return { std::clamp<int32_t>( viewportPoint.x, 0, 399 ) * 640 / 400,
-                 std::min<int32_t>( ( std::clamp<int32_t>( viewportPoint.y, 0, 239 ) + 25 ) * 640 / 400, battle3DSFooter.y - 17 ) };
+        return { battle3DSCamera.x + std::clamp<int32_t>( viewportPoint.x, 0, 399 ), battle3DSCamera.y + std::clamp<int32_t>( viewportPoint.y, 0, 239 ) };
     }
     void set3DSBattleFooter( const Rect sourceFooter )
     {
@@ -1565,6 +1576,10 @@ namespace fheroes2
     bool is3DSNativeDialog()
     {
         return !nativeDialogFrames.empty() && nativeDialogFrames.back().enabled && !is3DSBattleView();
+    }
+    bool is3DSDialogExplicitLayout()
+    {
+        return is3DSNativeDialog() && nativeDialogFrames.back().explicitLayout;
     }
     size_t get3DSDialogScopeId()
     {
@@ -1765,11 +1780,12 @@ namespace fheroes2
             frame.savedCanvas.assign( display.image(), display.image() + static_cast<size_t>( display.width() ) * display.height() );
             frame.frozenTop.resize( 400 * 240, 0 );
             const auto * previousTop = get3DSDialogFrozenTop();
-            const bool scaledBattle = is3DSBattleView();
-            if ( scaledBattle )
-                threeDS::copyBattleTopIndexed( display.image(), display.width(), display.height(), battle3DSFooter.y, frame.frozenTop.data() );
+            const bool nativeBattle = is3DSBattleView();
+            if ( nativeBattle )
+                threeDS::copyBattleTopIndexed( display.image(), display.width(), display.height(), battle3DSFooter.y, frame.frozenTop.data(), battle3DSCamera.x,
+                                               battle3DSCamera.y );
             const Point camera{};
-            if ( !scaledBattle )
+            if ( !nativeBattle )
                 for ( int y = 0; y < 240; ++y )
                     for ( int x = 0; x < 400; ++x ) {
                         if ( previousTop && !has3DSDialogTopOverlay() )
@@ -1891,7 +1907,11 @@ namespace fheroes2
             return;
         }
 
-        if ( _cursor->isVisible() && _cursor->isSoftwareEmulation() && !_cursor->_image.empty() ) {
+        bool drawSoftwareCursor = true;
+#if defined( TARGET_NINTENDO_3DS )
+        drawSoftwareCursor = !( is3DSNativeDialog() && !get3DSDialogButtons().empty() && ( is3DSDialogExplicitLayout() || !( hidKeysHeld() & KEY_L ) ) );
+#endif
+        if ( drawSoftwareCursor && _cursor->isVisible() && _cursor->isSoftwareEmulation() && !_cursor->_image.empty() ) {
             const Sprite & cursorImage = _cursor->_image;
             Rect cursorROI( cursorImage.x(), cursorImage.y(), cursorImage.width(), cursorImage.height() );
 

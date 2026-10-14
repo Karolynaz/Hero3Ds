@@ -56,6 +56,7 @@
 #include "settings.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_text.h"
@@ -170,8 +171,136 @@ namespace
         return { textX, y, text.width(), text.height() };
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    std::string scenario3DSInfo( const Settings & conf )
+    {
+        const auto & map = conf.getCurrentMapInfo();
+        std::string info = map.name + "\n" + std::to_string( map.width ) + " x " + std::to_string( map.height );
+        info += "\n" + std::string( _( "Game Difficulty:" ) ) + " " + Difficulty::String( Game::getDifficulty() );
+        info += "\n" + std::string( _( "Rating" ) ) + " " + std::to_string( Game::GetRating() ) + "%";
+        for ( const auto * player : conf.GetPlayers() ) {
+            if ( player->isControlHuman() && !player->isControlAI() )
+                info += "\n" + Color::String( player->GetColor() ) + ": " + Race::String( player->GetRace() );
+        }
+        return info;
+    }
+
+    void edit3DSPlayers( Settings & conf, const int humanPlayerCount )
+    {
+        auto & players = conf.GetPlayers();
+        while ( true ) {
+            std::vector<std::string> labels;
+            for ( const auto * player : players )
+                labels.push_back( Color::String( player->GetColor() ) + std::string( ": " )
+                                  + ( player->isControlHuman() && !player->isControlAI() ? _( "Human" ) : _( "Computer" ) ) );
+            const int selected = fheroes2::show3DSMenu( _( "Players" ), labels, {}, true, scenario3DSInfo( conf ) );
+            if ( selected < 0 )
+                return;
+            auto & player = *players[selected];
+            while ( true ) {
+                const bool human = player.isControlHuman() && !player.isControlAI();
+                const auto & map = conf.getCurrentMapInfo();
+                const int choice
+                    = fheroes2::show3DSMenu( Color::String( player.GetColor() ),
+                                             { _( "Class" ), humanPlayerCount == 1 ? _( "Play as this color" ) : _( "Swap players" ), _( "Handicap" ) },
+                                             { map.AllowChangeRace( player.GetColor() ), static_cast<bool>( map.colorsAvailableForHumans & player.GetColor() ), human },
+                                             true, player.GetName() + "\n" + Race::String( player.GetRace() ) + "\n" + ( human ? _( "Human" ) : _( "Computer" ) ) );
+                if ( choice < 0 )
+                    break;
+                if ( choice == 0 ) {
+                    const std::vector<int> races{ Race::KNGT, Race::BARB, Race::SORC, Race::WRLK, Race::WZRD, Race::NECR, Race::RAND };
+                    std::vector<std::string> names;
+                    for ( const int race : races )
+                        names.emplace_back( Race::String( race ) );
+                    const int index = fheroes2::show3DSMenu( _( "Class" ), names, {}, true, _( "Choose the starting class for this player." ) );
+                    if ( index >= 0 )
+                        player.SetRace( races[index] );
+                }
+                else if ( choice == 1 && humanPlayerCount == 1 ) {
+                    for ( auto * current : players ) {
+                        if ( current != &player && current->isControlHuman() && !current->isControlAI() ) {
+                            const auto handicap = current->getHandicapStatus();
+                            current->SetControl( CONTROL_AI | CONTROL_HUMAN );
+                            current->setHandicapStatus( Player::HandicapStatus::NONE );
+                            player.SetControl( CONTROL_HUMAN );
+                            player.setHandicapStatus( handicap );
+                            break;
+                        }
+                    }
+                }
+                else if ( choice == 1 ) {
+                    std::vector<std::string> names;
+                    for ( const auto * other : players )
+                        names.emplace_back( Color::String( other->GetColor() ) );
+                    const int other = fheroes2::show3DSMenu( _( "Swap players" ), names, {}, true, _( "Choose another player to swap positions with." ) );
+                    if ( other >= 0 && players[other] != &player ) {
+                        Interface::PlayersInfo playerInfo;
+                        playerInfo.SwapPlayers( player, *players[other] );
+                    }
+                }
+                else if ( choice == 2 ) {
+                    const int handicap
+                        = fheroes2::show3DSMenu( _( "Handicap" ), { _( "None" ), _( "Mild" ), _( "Severe" ) }, {}, true,
+                                                 _( "Mild: 15% fewer resources per turn. Severe: 30% fewer resources per turn. Starting resources are also reduced." ) );
+                    if ( handicap >= 0 )
+                        player.setHandicapStatus( static_cast<Player::HandicapStatus>( handicap ) );
+                }
+            }
+        }
+    }
+
+    fheroes2::GameMode choose3DSNewMap( MapsFileInfoList & maps, const int humanPlayerCount )
+    {
+        Settings & conf = Settings::Get();
+        const auto selected = std::find_if( maps.begin(), maps.end(), [&conf]( const auto & info ) { return info.filename == conf.getCurrentMapInfo().filename; } );
+        conf.setCurrentMapInfo( selected == maps.end() ? maps.front() : *selected );
+        updatePlayers( conf.GetPlayers(), humanPlayerCount );
+        Game::LoadPlayers( conf.getCurrentMapInfo().filename, conf.GetPlayers() );
+        fheroes2::drawMainMenuScreen();
+        auto result = fheroes2::GameMode::MAIN_MENU;
+        int focus = 0;
+        while ( true ) {
+            const int choice = fheroes2::show3DSMenu( _( "New Game" ), { _( "Start Game" ), _( "Select Map" ), _( "Game Difficulty" ), _( "Players" ) }, {}, true,
+                                                      scenario3DSInfo( conf ), focus );
+            if ( choice < 0 )
+                break;
+            focus = choice;
+            if ( choice == 0 ) {
+                result = fheroes2::GameMode::START_GAME;
+                break;
+            }
+            if ( choice == 1 ) {
+                const auto * map = Dialog::SelectScenario( maps, false );
+                if ( map && map->filename != conf.getCurrentMapInfo().filename ) {
+                    Game::SavePlayers( conf.getCurrentMapInfo().filename, conf.GetPlayers() );
+                    conf.setCurrentMapInfo( *map );
+                    updatePlayers( conf.GetPlayers(), humanPlayerCount );
+                    Game::LoadPlayers( map->filename, conf.GetPlayers() );
+                }
+            }
+            else if ( choice == 2 ) {
+                std::vector<std::string> labels;
+                for ( int d = Difficulty::EASY; d <= Difficulty::IMPOSSIBLE; ++d )
+                    labels.emplace_back( Difficulty::String( d ) );
+                const int difficulty
+                    = fheroes2::show3DSMenu( _( "Game Difficulty" ), labels, {}, true,
+                                             _( "Higher difficulty gives computer players more resources and makes them more aggressive." ), Game::getDifficulty() );
+                if ( difficulty >= 0 )
+                    Game::saveDifficulty( difficulty );
+            }
+            else if ( choice == 3 )
+                edit3DSPlayers( conf, humanPlayerCount );
+        }
+        Game::SavePlayers( conf.getCurrentMapInfo().filename, conf.GetPlayers() );
+        return result;
+    }
+#endif
+
     fheroes2::GameMode ChooseNewMap( MapsFileInfoList & lists, const int humanPlayerCount )
     {
+#if defined( TARGET_NINTENDO_3DS )
+        return choose3DSNewMap( lists, humanPlayerCount );
+#endif
         assert( !lists.empty() );
 
         // setup cursor

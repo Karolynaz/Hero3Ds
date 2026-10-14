@@ -38,6 +38,7 @@
 #include "screen.h"
 #include "settings.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_option_item.h"
@@ -109,6 +110,9 @@ namespace Dialog
 {
     bool openAudioSettingsDialog( const bool fromAdventureMap )
     {
+#if defined( TARGET_NINTENDO_3DS )
+        return fheroes2::show3DSAudioSettings( fromAdventureMap );
+#endif
         const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 
         fheroes2::Display & display = fheroes2::Display::instance();

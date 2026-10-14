@@ -46,6 +46,7 @@
 #include "system.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_constants.h"
 #include "ui_dialog.h"
@@ -478,6 +479,26 @@ const Maps::FileInfo * Dialog::SelectScenario( MapsFileInfoList & all, const boo
         }
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    if ( !isForEditor ) {
+        std::vector<std::string> labels;
+        labels.reserve( all.size() );
+        for ( const auto & map : all )
+            labels.push_back( map.name );
+        int focus = 0;
+        while ( true ) {
+            const int selected = fheroes2::show3DSMenu( _( "Select Map" ), labels, {}, true,
+                                                        _( "Choose a scenario. Its description will appear on the top screen before you confirm." ), focus );
+            if ( selected < 0 )
+                return nullptr;
+            focus = selected;
+            const auto & map = all[selected];
+            const std::string info = map.name + "\n" + std::to_string( map.width ) + " x " + std::to_string( map.height ) + "\n" + map.description;
+            if ( fheroes2::show3DSMenu( _( "Scenario" ), { _( "Select" ), _( "Back" ) }, {}, true, info ) == 0 )
+                return &all[selected];
+        }
+    }
+#endif
     outputMapSelectionInTextSupportMode();
 
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );

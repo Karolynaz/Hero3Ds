@@ -51,6 +51,7 @@
 #include "settings.h"
 #include "system.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_keyboard.h"
@@ -326,6 +327,53 @@ namespace
         const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 
         MapsFileInfoList lists = getSortedMapsFileInfoList();
+#if defined( TARGET_NINTENDO_3DS )
+        std::vector<std::string> labels;
+        if ( isEditing ) {
+            labels.emplace_back( _( "New Save" ) );
+        }
+        for ( const auto & entry : lists ) {
+            labels.emplace_back( System::GetStem( entry.filename ) );
+        }
+        if ( labels.empty() ) {
+            fheroes2::showStandardTextMessage( header, _( "No save files to load." ), Dialog::OK );
+            return {};
+        }
+        int initial = 0;
+        for ( size_t i = 0; i < lists.size(); ++i ) {
+            if ( lists[i].filename == lastfile ) {
+                initial = static_cast<int>( i ) + ( isEditing ? 1 : 0 );
+                break;
+            }
+        }
+        while ( true ) {
+            const int selected = fheroes2::show3DSMenu( header, labels, {}, true,
+                                                        isEditing ? _( "Select an existing save to replace it, or choose New Save to create a save for the current day." )
+                                                                  : _( "Select a saved game. Use the page buttons to browse your saves. B cancels." ),
+                                                        initial );
+            if ( selected < 0 ) {
+                return {};
+            }
+            initial = selected;
+            const bool newSave = isEditing && selected == 0;
+            const auto & info = newSave ? Settings::Get().getCurrentMapInfo() : lists[static_cast<size_t>( selected ) - ( isEditing ? 1 : 0 )];
+            const std::string path = newSave ? lastfile : info.filename;
+            std::string details = std::string( _( "File" ) ) + ": " + System::GetStem( path ) + "\n" + _( "Map" ) + ": " + info.name + "\n" + _( "Month" ) + ": "
+                                  + std::to_string( newSave ? world.GetMonth() : info.worldMonth ) + "  " + _( "Week" ) + ": "
+                                  + std::to_string( newSave ? world.GetWeek() : info.worldWeek ) + "  " + _( "Day" ) + ": "
+                                  + std::to_string( newSave ? world.GetDay() : info.worldDay );
+            if ( !newSave ) {
+                const tm date = System::GetTM( info.timestamp );
+                char formattedDate[64]{};
+                std::strftime( formattedDate, sizeof( formattedDate ), "%Y-%m-%d %H:%M", &date );
+                details += "\n" + std::string( _( "Date" ) ) + ": " + formattedDate;
+            }
+            const int confirmed = fheroes2::show3DSMenu( header, { _( "Select" ), _( "Back" ) }, {}, true, details );
+            if ( confirmed == 0 ) {
+                return path;
+            }
+        }
+#endif
 
         const int32_t listHeightDeduction = 120;
         const int32_t listAreaOffsetY = 3;
