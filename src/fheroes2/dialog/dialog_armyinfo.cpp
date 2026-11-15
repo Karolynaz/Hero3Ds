@@ -524,6 +524,13 @@ int Dialog::ArmyInfo( const Troop & troop, int flags, bool isReflected, const in
     fheroes2::Display & display = fheroes2::Display::instance();
     const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
 
+#if defined( TARGET_NINTENDO_3DS )
+    std::unique_ptr<fheroes2::Scope3DSCastleView> castleSubView3DS;
+    if ( fheroes2::is3DSCastleView() ) {
+        castleSubView3DS = std::make_unique<fheroes2::Scope3DSCastleView>( true );
+    }
+#endif
+
     const int viewarmy = isEvilInterface ? ICN::VIEWARME : ICN::VIEWARMY;
     const fheroes2::Sprite & sprite_dialog = Assets::getImage( viewarmy, 0 );
     const fheroes2::Sprite & spriteDialogShadow = Assets::getImage( viewarmy, 7 );

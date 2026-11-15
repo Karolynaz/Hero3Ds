@@ -181,6 +181,10 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
     // setup cursor
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSCastleView castleSubView3DS( true );
+#endif
+
     fheroes2::Display & display = fheroes2::Display::instance();
     const fheroes2::ImageRestorer restorer( display, ( display.width() - fheroes2::Display::DEFAULT_WIDTH ) / 2,
                                             ( display.height() - fheroes2::Display::DEFAULT_HEIGHT ) / 2, fheroes2::Display::DEFAULT_WIDTH,

@@ -121,7 +121,10 @@ namespace EventProcessing
             const bool dialogChanged = dialogScopeId != _dialogScopeId;
             _dialogScopeId = dialogScopeId;
             const bool battleView = !nativeDialog && fheroes2::is3DSBattleView();
+            const bool castleView = !nativeDialog && !battleView && fheroes2::is3DSCastleView();
+            const bool castleSubView = !nativeDialog && !battleView && !castleView && fheroes2::is3DSCastleSubView();
             const bool battleViewChanged = battleView != _wasBattleView;
+            const bool castleViewChanged = ( castleView != _wasCastleView ) || ( castleSubView != _wasCastleSubView );
             const bool dialogFreePointer = nativeDialog && !fheroes2::is3DSDialogExplicitLayout() && ( held & KEY_L );
             if ( dialogFreePointer ) {
                 auto viewport = fheroes2::get3DSDialogViewport();
@@ -244,6 +247,26 @@ namespace EventProcessing
                 if ( !_touchGate.active() )
                     events._emulatedPointerPos = { static_cast<double>( point.x ), static_cast<double>( point.y ) };
             }
+            else if ( castleView || castleSubView ) {
+                if ( ( castleView && !_wasCastleView ) || ( castleSubView && !_wasCastleSubView ) ) {
+                    _castlePointerPos = { 200.0, 120.0 };
+                    const auto point = castleView ? fheroes2::map3DSCastleTopPointer( { 200, 120 } ) : fheroes2::map3DSCastleSubPointer( { 200, 120 } );
+                    if ( point != events.getMouseCursorPos() ) {
+                        events.onMouseMotionEvent( point );
+                    }
+                    events._emulatedPointerPos = { static_cast<double>( point.x ), static_cast<double>( point.y ) };
+                }
+                else if ( !_touchGate.active() && !( held & KEY_TOUCH ) && ( std::abs( circle.dx ) > 20 || std::abs( circle.dy ) > 20 ) ) {
+                    _castlePointerPos.x = fheroes2::input3DS::cursorAxis( _castlePointerPos.x, circle.dx, elapsed, 400 );
+                    _castlePointerPos.y = fheroes2::input3DS::cursorAxis( _castlePointerPos.y, -circle.dy, elapsed, 240 );
+                    const fheroes2::Point vp( static_cast<int32_t>( _castlePointerPos.x ), static_cast<int32_t>( _castlePointerPos.y ) );
+                    const auto point = castleView ? fheroes2::map3DSCastleTopPointer( vp ) : fheroes2::map3DSCastleSubPointer( vp );
+                    if ( point != events.getMouseCursorPos() ) {
+                        events.onMouseMotionEvent( point );
+                    }
+                    events._emulatedPointerPos = { static_cast<double>( point.x ), static_cast<double>( point.y ) };
+                }
+            }
             else {
                 const bool adventureLayout = fheroes2::is3DSAdventureLayout();
                 const int width = adventureLayout ? 400 : display.width();
@@ -277,11 +300,13 @@ namespace EventProcessing
                     fheroes2::set3DSAdventureEdgeScroll( {} );
                 }
             }
-            if ( dialogFreePointer || nativeDialog || battleView ) {
+            if ( dialogFreePointer || nativeDialog || battleView || castleView || castleSubView ) {
                 _edgeScrollArmed = false;
                 fheroes2::set3DSAdventureEdgeScroll( {} );
             }
             _wasBattleView = battleView;
+            _wasCastleView = castleView;
+            _wasCastleSubView = castleSubView;
             _wasDialogFreePointer = dialogFreePointer;
             fheroes2::Point projectedTouch( -1, -1 );
             if ( held & KEY_TOUCH ) {
@@ -293,12 +318,17 @@ namespace EventProcessing
                 else if ( battleView ) {
                     projectedTouch = fheroes2::map3DSBattleTouch( { touch.px, touch.py } );
                 }
+                else if ( castleView ) {
+                    projectedTouch = fheroes2::map3DSCastleTouch( { touch.px, touch.py } );
+                }
                 else if ( fheroes2::is3DSAdventureLayout() ) {
                     projectedTouch = { touch.px, touch.py + 240 };
                 }
             }
-            const bool touchEnabled = nativeDialog || fheroes2::is3DSAdventureLayout() || ( battleView && ( !( held & KEY_TOUCH ) || projectedTouch.x >= 0 ) );
-            const auto touchTransition = _touchGate.update( touchEnabled && !battleViewChanged && !dialogChanged, held & KEY_TOUCH, down & KEY_TOUCH, up & KEY_TOUCH );
+            const bool touchEnabled = nativeDialog || fheroes2::is3DSAdventureLayout()
+                                      || ( ( battleView || castleView ) && ( !( held & KEY_TOUCH ) || projectedTouch.x >= 0 ) );
+            const auto touchTransition
+                = _touchGate.update( touchEnabled && !battleViewChanged && !castleViewChanged && !dialogChanged, held & KEY_TOUCH, down & KEY_TOUCH, up & KEY_TOUCH );
             if ( _touchGate.active() && ( held & KEY_TOUCH ) ) {
                 _touch = projectedTouch;
                 events.onMouseMotionEvent( _touch );
@@ -363,7 +393,10 @@ namespace EventProcessing
         fheroes2::Point _touch;
         fheroes2::PointBase2D<double> _battlePointerPos;
         fheroes2::PointBase2D<double> _battlePanRemainder;
+        fheroes2::PointBase2D<double> _castlePointerPos{ 200.0, 120.0 };
         bool _wasBattleView{ false };
+        bool _wasCastleView{ false };
+        bool _wasCastleSubView{ false };
         bool _wasDialogFreePointer{ false };
         bool _edgeScrollArmed{ false };
         fheroes2::PointBase2D<double> _dialogFreePointerPos;

@@ -55,6 +55,10 @@ namespace
 
 Castle::MageGuildDialogResult Castle::_openMageGuild( const Heroes * hero ) const
 {
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSCastleView castleSubView3DS( true );
+#endif
+
     fheroes2::Display & display = fheroes2::Display::instance();
 
     // setup cursor

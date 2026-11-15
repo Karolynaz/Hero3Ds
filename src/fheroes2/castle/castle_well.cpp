@@ -202,6 +202,10 @@ bool Castle::_recruitCastleMax( const Troops & currentCastleArmy )
 
 void Castle::_openWell()
 {
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSCastleView castleSubView3DS( true );
+#endif
+
     fheroes2::Display & display = fheroes2::Display::instance();
 
     // setup cursor

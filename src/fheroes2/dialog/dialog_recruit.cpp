@@ -26,6 +26,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -253,6 +254,13 @@ namespace
 Troop Dialog::RecruitMonster( const Monster & monster0, const uint32_t available, const bool allowDowngradedMonster, const int32_t windowOffsetY )
 {
     const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
+
+#if defined( TARGET_NINTENDO_3DS )
+    std::unique_ptr<fheroes2::Scope3DSCastleView> castleSubView3DS;
+    if ( fheroes2::is3DSCastleView() ) {
+        castleSubView3DS = std::make_unique<fheroes2::Scope3DSCastleView>( true );
+    }
+#endif
 
     fheroes2::Display & display = fheroes2::Display::instance();
     LocalEvent & le = LocalEvent::Get();

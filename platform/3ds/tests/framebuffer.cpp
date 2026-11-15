@@ -89,4 +89,22 @@ int main()
     assert( pixel( top, 1, 0 ) == 0x987654 && pixel( top, 2, 0 ) == 0 && pixel( bottom, 0, 0 ) == 0 );
     render( nullptr, 0, 0, false );
     assert( pixel( top, 40, 0 ) == 0 && pixel( bottom, 0, 0 ) == 0 );
+
+    // Castle main split: 640x256 panorama stretches across the 400x240 top screen,
+    // while 640x224 army/controls strip (y >= 256) maps to the 320x240 bottom screen.
+    const CastleFrame castleMain{ true, false };
+    renderFramebuffers( image.data(), 640, 480, palette, top.data() + 1, bottom.data() + 1, false, nullptr, nullptr, nullptr, &castleMain );
+    assert( pixel( top, 0, 0 ) == 0x112233 && pixel( top, 398, 0 ) == 0x112233 );
+    assert( pixel( bottom, 0, 0 ) == 0xABCDEF && pixel( bottom, 159, 239 ) != 0 );
+
+    // Castle sub-screen: 640x480 canvas scales across the full 400x240 top screen.
+    const CastleFrame castleSub{ false, true };
+    renderFramebuffers( image.data(), 640, 480, palette, top.data() + 1, bottom.data() + 1, false, nullptr, nullptr, nullptr, &castleSub );
+    assert( pixel( top, 0, 0 ) == 0x112233 && pixel( top, 399, 239 ) == 0xABCDEF );
+    assert( pixel( bottom, 0, 0 ) == 0 && pixel( bottom, 319, 239 ) == 0 );
+
+    // Scaled indexed snapshot captures the 400x240 region cleanly.
+    std::vector<uint8_t> scaled( 400 * 240, 0 );
+    copyScaledIndexed( image.data(), 640, 480, 0, 0, 640, 256, scaled.data() );
+    assert( scaled.front() == 1 && scaled[239 * 400 + 399] == 2 );
 }

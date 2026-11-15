@@ -265,6 +265,13 @@ void Dialog::ThievesGuild( const bool oracle )
         restorer = std::make_unique<fheroes2::ImageRestorer>( display, dialogRoi.x, dialogRoi.y, dialogRoi.width, dialogRoi.height );
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    std::unique_ptr<fheroes2::Scope3DSCastleView> castleSubView3DS;
+    if ( !oracle ) {
+        castleSubView3DS = std::make_unique<fheroes2::Scope3DSCastleView>( true );
+    }
+#endif
+
     // Fade-out game screen only for 640x480 resolution and if 'renderBackgroundDialog' is false (we are replacing image in already opened dialog).
     const bool isDefaultScreenSize = display.isDefaultSize();
     if ( isDefaultScreenSize || !oracle ) {

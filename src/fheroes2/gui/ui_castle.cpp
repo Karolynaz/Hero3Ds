@@ -303,10 +303,16 @@ namespace fheroes2
     void drawCastleName( const Castle & castle, Image & output, const Point & offset )
     {
         const fheroes2::Sprite & background = Assets::getImage( ICN::TOWNNAME, 0 );
-        fheroes2::Blit( background, fheroes2::Display::instance(), offset.x + 320 - background.width() / 2, offset.y + 248 );
+        int32_t bannerY = 248;
+#if defined( TARGET_NINTENDO_3DS )
+        if ( fheroes2::is3DSCastleView() ) {
+            bannerY = 256 - background.height();
+        }
+#endif
+        fheroes2::Blit( background, fheroes2::Display::instance(), offset.x + 320 - background.width() / 2, offset.y + bannerY );
 
         const fheroes2::Text text( castle.GetName(), fheroes2::FontType::smallWhite() );
-        text.draw( offset.x + 320 - text.width() / 2, offset.y + 250, output );
+        text.draw( offset.x + 320 - text.width() / 2, offset.y + bannerY + 2, output );
     }
 
     void drawCastleDialogBuilding( const int32_t icnId, const uint32_t icnIndex, const Castle & castle, const Point & offset, const Rect & renderArea,

@@ -98,8 +98,9 @@ protected:
         const fheroes2::threeDS::DialogFrame
             dialog{ fheroes2::get3DSDialogFrozenTop(),    fheroes2::has3DSDialogTopOverlay(), viewport.x, viewport.y, focus.x, focus.y, focus.width, focus.height,
                     fheroes2::get3DSDialogDimBackground() };
+        const fheroes2::threeDS::CastleFrame castle{ fheroes2::is3DSCastleView(), fheroes2::is3DSCastleSubView() };
         fheroes2::threeDS::renderFramebuffers( display.image(), display.width(), display.height(), colors, top, bottom, fheroes2::is3DSAdventureLayout(),
-                                               fheroes2::get3DSAdventureSnapshot(), &battle, &dialog );
+                                               fheroes2::get3DSAdventureSnapshot(), &battle, &dialog, &castle );
         gfxFlushBuffers();
         gfxSwapBuffers();
         if ( _vsync )

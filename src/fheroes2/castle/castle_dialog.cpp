@@ -322,6 +322,10 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
         }
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSCastleView castleView3DS;
+#endif
+
     const std::string currentDate = getDateString();
 
     // Previous castle button.

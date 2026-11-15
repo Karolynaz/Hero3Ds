@@ -1466,6 +1466,12 @@ namespace fheroes2
     static Point battle3DSCamera;
     static Rect battle3DSFooter{ 0, 430, 640, 50 };
     static Point adventure3DSEdgeScroll;
+    struct Castle3DSState
+    {
+        bool fullTop{ false };
+        unsigned baseline{ 0 };
+    };
+    static std::vector<Castle3DSState> castle3DSStack;
 #if defined( TARGET_NINTENDO_3DS )
     static std::vector<uint8_t> adventure3DSSnapshot;
     static std::vector<uint8_t> battle3DSSnapshot;
@@ -1557,6 +1563,43 @@ namespace fheroes2
             return battle3DSSnapshot.data();
 #endif
         return nullptr;
+    }
+    void pushCastle3DSView( const bool fullTop )
+    {
+        castle3DSStack.push_back( { fullTop, standard3DSLayoutDepth } );
+    }
+    void popCastle3DSView()
+    {
+        assert( !castle3DSStack.empty() );
+        castle3DSStack.pop_back();
+    }
+    bool is3DSCastleView()
+    {
+        return !castle3DSStack.empty() && !castle3DSStack.back().fullTop && !battle3DSActive
+               && standard3DSLayoutDepth == castle3DSStack.back().baseline;
+    }
+    bool is3DSCastleSubView()
+    {
+        return !castle3DSStack.empty() && castle3DSStack.back().fullTop && !battle3DSActive
+               && standard3DSLayoutDepth == castle3DSStack.back().baseline;
+    }
+    Point map3DSCastleTopPointer( const Point viewportPoint )
+    {
+        const int32_t vx = std::clamp<int32_t>( viewportPoint.x, 0, 399 );
+        const int32_t vy = std::clamp<int32_t>( viewportPoint.y, 0, 239 );
+        return { std::clamp<int32_t>( ( vx * 2 + 1 ) * 640 / 800, 0, 639 ), std::clamp<int32_t>( ( vy * 2 + 1 ) * 256 / 480, 0, 255 ) };
+    }
+    Point map3DSCastleSubPointer( const Point viewportPoint )
+    {
+        const int32_t vx = std::clamp<int32_t>( viewportPoint.x, 0, 399 );
+        const int32_t vy = std::clamp<int32_t>( viewportPoint.y, 0, 239 );
+        return { std::clamp<int32_t>( ( vx * 2 + 1 ) * 640 / 800, 0, 639 ), std::clamp<int32_t>( ( vy * 2 + 1 ) * 480 / 480, 0, 479 ) };
+    }
+    Point map3DSCastleTouch( const Point bottomPoint )
+    {
+        if ( !is3DSCastleView() || bottomPoint.x < 0 || bottomPoint.x >= 320 || bottomPoint.y < 0 || bottomPoint.y >= 240 )
+            return { -1, -1 };
+        return { std::clamp<int32_t>( bottomPoint.x * 2 + 1, 0, 639 ), std::clamp<int32_t>( 256 + ( bottomPoint.y * 2 + 1 ) * 224 / 480, 256, 479 ) };
     }
     const uint8_t * get3DSAdventureSnapshot()
     {
@@ -1659,14 +1702,20 @@ namespace fheroes2
             frame.canvasSize = { display.width(), display.height() };
             frame.savedCanvas.assign( display.image(), display.image() + static_cast<size_t>( display.width() ) * display.height() );
             frame.frozenTop.assign( 400 * 240, 0 );
-            // The unchanged city screen is currently letterboxed at half size.
-            // Preserve those exact visible pixels before its popup is drawn.
-            for ( int y = 0; y < 240; ++y )
-                for ( int x = 40; x < 360; ++x ) {
-                    const int sx = ( x - 40 ) * 2, sy = y * 2;
-                    if ( sx < display.width() && sy < display.height() )
-                        frame.frozenTop[y * 400 + x] = display.image()[sy * display.width() + sx];
-                }
+            if ( !castle3DSStack.empty() ) {
+                const int srcHeight = castle3DSStack.back().fullTop ? 480 : 256;
+                threeDS::copyScaledIndexed( display.image(), display.width(), display.height(), 0, 0, 640, srcHeight, frame.frozenTop.data() );
+            }
+            else {
+                // The unchanged city screen is currently letterboxed at half size.
+                // Preserve those exact visible pixels before its popup is drawn.
+                for ( int y = 0; y < 240; ++y )
+                    for ( int x = 40; x < 360; ++x ) {
+                        const int sx = ( x - 40 ) * 2, sy = y * 2;
+                        if ( sx < display.width() && sy < display.height() )
+                            frame.frozenTop[y * 400 + x] = display.image()[sy * display.width() + sx];
+                    }
+            }
             frame.enabled = true;
         }
 #endif
@@ -1784,7 +1833,9 @@ namespace fheroes2
         // native scope owns the fixed (0,240) viewport.
         frame.explicitLayout = explicitLayout;
         frame.topOverlay = overlay;
-        frame.enabled = explicitLayout || is3DSNativeDialog() || is3DSAdventureLayout() || is3DSBattleView();
+        const bool wasCastleView = is3DSCastleView();
+        const bool wasCastleSubView = is3DSCastleSubView();
+        frame.enabled = explicitLayout || is3DSNativeDialog() || is3DSAdventureLayout() || is3DSBattleView() || wasCastleView || wasCastleSubView;
 #if defined( TARGET_NINTENDO_3DS )
         auto & display = Display::instance();
         if ( frame.enabled && !display.empty() ) {
@@ -1796,8 +1847,12 @@ namespace fheroes2
             if ( nativeBattle )
                 threeDS::copyBattleTopIndexed( display.image(), display.width(), display.height(), battle3DSFooter.y, frame.frozenTop.data(), battle3DSCamera.x,
                                                battle3DSCamera.y );
+            else if ( wasCastleView )
+                threeDS::copyScaledIndexed( display.image(), display.width(), display.height(), 0, 0, 640, 256, frame.frozenTop.data() );
+            else if ( wasCastleSubView )
+                threeDS::copyScaledIndexed( display.image(), display.width(), display.height(), 0, 0, 640, 480, frame.frozenTop.data() );
             const Point camera{};
-            if ( !nativeBattle )
+            if ( !nativeBattle && !wasCastleView && !wasCastleSubView )
                 for ( int y = 0; y < 240; ++y )
                     for ( int x = 0; x < 400; ++x ) {
                         if ( previousTop && !has3DSDialogTopOverlay() )
