@@ -1465,6 +1465,7 @@ namespace fheroes2
     static unsigned battle3DSStandardBaseline = 0;
     static Point battle3DSCamera;
     static Rect battle3DSFooter{ 0, 430, 640, 50 };
+    static Point adventure3DSEdgeScroll;
 #if defined( TARGET_NINTENDO_3DS )
     static std::vector<uint8_t> adventure3DSSnapshot;
     static std::vector<uint8_t> battle3DSSnapshot;
@@ -1473,10 +1474,21 @@ namespace fheroes2
     void set3DSAdventureLayout( const bool enabled )
     {
         adventure3DSLayout = enabled;
+        if ( !enabled ) {
+            adventure3DSEdgeScroll = {};
+        }
     }
     bool is3DSAdventureLayout()
     {
         return !battle3DSActive && adventure3DSLayout && standard3DSLayoutDepth == 0;
+    }
+    void set3DSAdventureEdgeScroll( const Point direction )
+    {
+        adventure3DSEdgeScroll = direction;
+    }
+    Point get3DSAdventureEdgeScroll()
+    {
+        return is3DSAdventureLayout() ? adventure3DSEdgeScroll : Point();
     }
     void enterBattle3DSView()
     {

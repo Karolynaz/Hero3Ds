@@ -182,13 +182,23 @@ namespace
             display.render();
         };
         redraw();
+        std::vector<const ButtonBase *> focusButtons;
+        focusButtons.reserve( buttons.size() + 2 );
+        for ( const auto & button : buttons ) {
+            focusButtons.push_back( button.get() );
+        }
+        if ( pages > 1 ) {
+            focusButtons.push_back( &previous );
+            focusButtons.push_back( &next );
+        }
+        const void * lastFocus = get3DSDialogFocus();
         auto & events = LocalEvent::Get();
         while ( events.HandleEvents() ) {
+            sync3DSDialogFocus( lastFocus, focusButtons.data(), focusButtons.size() );
             if ( closable && events.isKeyPressed( Key::KEY_ESCAPE ) )
                 return types & Dialog::CANCEL ? Dialog::CANCEL : types & Dialog::NO ? Dialog::NO : Dialog::ZERO;
             for ( size_t i = 0; i < buttons.size(); ++i ) {
                 buttons[i]->drawOnState( events.isMouseLeftButtonPressedAndHeldInArea( buttons[i]->area() ) );
-                buttons[i]->draw();
                 if ( events.MouseClickLeft( buttons[i]->area() ) )
                     return values[i];
             }

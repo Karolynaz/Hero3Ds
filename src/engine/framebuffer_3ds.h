@@ -143,25 +143,6 @@ namespace fheroes2::threeDS
                     }
             }
             copyNative( bottom, dialog->cropX, dialog->cropY, 320, 240, 0, image );
-            if ( dialog->focusWidth > 0 && dialog->focusHeight > 0 ) {
-                const int left = dialog->focusX - dialog->cropX, upper = dialog->focusY - dialog->cropY;
-                const auto highlight = [&]( const int x, const int y ) {
-                    if ( x < 0 || x >= 320 || y < 0 || y >= 240 )
-                        return;
-                    const size_t offset = static_cast<size_t>( x * 240 + 239 - y ) * 3;
-                    bottom[offset] = 32;
-                    bottom[offset + 1] = 240;
-                    bottom[offset + 2] = 255;
-                };
-                for ( int x = left; x < left + dialog->focusWidth; ++x ) {
-                    highlight( x, upper );
-                    highlight( x, upper + dialog->focusHeight - 1 );
-                }
-                for ( int y = upper; y < upper + dialog->focusHeight; ++y ) {
-                    highlight( left, y );
-                    highlight( left + dialog->focusWidth - 1, y );
-                }
-            }
         }
         else if ( battle && ( battle->nativeView || battle->modalSnapshot ) ) {
             if ( battle->nativeView ) {

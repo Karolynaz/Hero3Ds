@@ -49,8 +49,10 @@
 #include "interface_gamearea.h"
 #include "kingdom.h"
 #include "localevent.h"
+#include "luck.h"
 #include "map_format_info.h"
 #include "math_base.h"
+#include "morale.h"
 #include "pal.h"
 #include "race.h"
 #include "screen.h"
@@ -133,10 +135,11 @@ int Heroes::OpenDialog( const bool readonly, const bool fade, const bool disable
             fheroes2::register3DSDialogButton( &cellIds[5 + index], { 20 + static_cast<int32_t>( index % 7 ) * 41, 337 + static_cast<int32_t>( index / 7 ) * 40, 34, 34 },
                                                true );
         }
-        auto previous = fheroes2::make3DSButton( _( "Prev" ), { 7, 440, 72, 34 } );
-        auto next = fheroes2::make3DSButton( _( "Next" ), { 85, 440, 72, 34 } );
-        auto dismiss = fheroes2::make3DSButton( _( "Dismiss" ), { 163, 440, 72, 34 } );
-        auto exit = fheroes2::make3DSButton( _( "Exit" ), { 241, 440, 72, 34 } );
+        auto previous = fheroes2::make3DSButton( _( "Prev" ), { 7, 440, 56, 34 } );
+        auto next = fheroes2::make3DSButton( _( "Next" ), { 67, 440, 56, 34 } );
+        auto skills = fheroes2::make3DSButton( _( "Skills" ), { 127, 440, 62, 34 } );
+        auto dismiss = fheroes2::make3DSButton( _( "Dismiss" ), { 193, 440, 64, 34 } );
+        auto exit = fheroes2::make3DSButton( _( "Exit" ), { 261, 440, 52, 34 } );
         if ( readonly || disableSwitch || GetKingdom().GetHeroes().size() < 2 ) {
             previous.disable();
             next.disable();
@@ -146,13 +149,69 @@ int Heroes::OpenDialog( const bool readonly, const bool fade, const bool disable
         }
         previous.draw();
         next.draw();
+        skills.draw();
         dismiss.draw();
         exit.draw();
         display.render();
+        const std::array<const fheroes2::ButtonBase *, 5> focusButtons{ &previous, &next, &skills, &dismiss, &exit };
+        const void * lastFocus = fheroes2::get3DSDialogFocus();
+        const auto inspectSkills = [&]() {
+            struct SkillEntry
+            {
+                std::string label;
+                std::string title;
+                std::string description;
+            };
+            std::vector<SkillEntry> entries;
+            for ( const auto & skill : _secondarySkills.ToVector() ) {
+                if ( skill.isValid() ) {
+                    const std::string name = skill.GetNameWithBonus( *this );
+                    entries.push_back( { name, name, skill.GetDescription( *this ) } );
+                }
+            }
+            const std::array<std::pair<int, int>, 4> primaryList{ { { Skill::Primary::ATTACK, GetAttack() },
+                                                                    { Skill::Primary::DEFENSE, GetDefense() },
+                                                                    { Skill::Primary::POWER, GetPower() },
+                                                                    { Skill::Primary::KNOWLEDGE, GetKnowledge() } } };
+            for ( const auto & [type, val] : primaryList ) {
+                const std::string title = Skill::Primary::String( type );
+                entries.push_back( { title + ": " + std::to_string( val ), title, Skill::Primary::StringDescription( type, this ) } );
+            }
+            std::string moraleMods;
+            const int morale = getMoraleWithModifiers( &moraleMods );
+            std::string moraleDesc = Morale::Description( morale );
+            moraleDesc.append( "\n\n" ).append( _( "Current Morale Modifiers:" ) ).append( "\n\n" );
+            moraleDesc.append( moraleMods.empty() ? _( "None" ) : moraleMods );
+            entries.push_back( { fheroes2::MoraleString( morale ), fheroes2::MoraleString( morale ), std::move( moraleDesc ) } );
+
+            std::string luckMods;
+            const int luck = getLuckWithModifiers( &luckMods );
+            std::string luckDesc = Luck::Description( luck );
+            luckDesc.append( "\n\n" ).append( _( "Current Luck Modifiers:" ) ).append( "\n\n" );
+            luckDesc.append( luckMods.empty() ? _( "None" ) : luckMods );
+            entries.push_back( { fheroes2::LuckString( luck ), fheroes2::LuckString( luck ), std::move( luckDesc ) } );
+
+            std::vector<std::string> menuLabels;
+            menuLabels.reserve( entries.size() );
+            for ( const auto & entry : entries ) {
+                menuLabels.push_back( entry.label );
+            }
+            int selection = 0;
+            while ( true ) {
+                selection = fheroes2::show3DSMenu( GetName(), menuLabels, {}, true, _( "Select a skill or trait to inspect its details." ), selection );
+                if ( selection < 0 || static_cast<size_t>( selection ) >= entries.size() ) {
+                    break;
+                }
+                const auto & chosen = entries[static_cast<size_t>( selection )];
+                fheroes2::showStandardTextMessage( chosen.title, chosen.description, Dialog::OK );
+            }
+        };
         auto & le = LocalEvent::Get();
         while ( le.HandleEvents() ) {
+            fheroes2::sync3DSDialogFocus( lastFocus, focusButtons.data(), focusButtons.size() );
             previous.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( previous.area() ) );
             next.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( next.area() ) );
+            skills.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( skills.area() ) );
             dismiss.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( dismiss.area() ) );
             exit.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( exit.area() ) );
             if ( Game::HotKeyCloseWindow() || le.MouseClickLeft( exit.area() ) ) {
@@ -163,6 +222,10 @@ int Heroes::OpenDialog( const bool readonly, const bool fade, const bool disable
             }
             if ( next.isEnabled() && le.MouseClickLeft( next.area() ) ) {
                 return Dialog::NEXT;
+            }
+            if ( le.MouseClickLeft( skills.area() ) ) {
+                inspectSkills();
+                display.render();
             }
             if ( dismiss.isEnabled() && le.MouseClickLeft( dismiss.area() )
                  && fheroes2::showStandardTextMessage( GetName(), _( "Are you sure you want to dismiss this Hero?" ), Dialog::YES | Dialog::NO ) == Dialog::YES ) {

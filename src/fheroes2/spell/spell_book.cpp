@@ -289,8 +289,14 @@ Spell SpellBook::Open( const HeroBase & hero, const Filter displayableSpells, co
             fheroes2::Text( std::to_string( _startSpellIndex / nativePageSize + 1 ) + "/" + std::to_string( pages ), fheroes2::FontType::normalWhite() )
                 .draw( 156, 458, nativeDisplay );
             nativeDisplay.render();
+            std::vector<const fheroes2::ButtonBase *> focusButtons{ &previous, &next, &close, &adventure, &combat };
+            for ( const auto & button : spellButtons ) {
+                focusButtons.push_back( &button );
+            }
+            const void * lastFocus = fheroes2::get3DSDialogFocus();
             bool changePage = false;
             while ( !changePage && nativeEvents.HandleEvents() ) {
+                fheroes2::sync3DSDialogFocus( lastFocus, focusButtons.data(), focusButtons.size() );
                 previous.drawOnState( nativeEvents.isMouseLeftButtonPressedAndHeldInArea( previous.area() ) );
                 next.drawOnState( nativeEvents.isMouseLeftButtonPressedAndHeldInArea( next.area() ) );
                 close.drawOnState( nativeEvents.isMouseLeftButtonPressedAndHeldInArea( close.area() ) );

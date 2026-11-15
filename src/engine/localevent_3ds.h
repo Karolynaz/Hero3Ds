@@ -169,17 +169,16 @@ namespace EventProcessing
                 const int directionY = vertical ? vertical : ( circle.dy > 60 ? -1 : ( circle.dy < -60 ? 1 : 0 ) );
                 const fheroes2::Point direction( directionX, directionY );
                 _dialogRepeat += std::clamp( elapsed, 0.0, 0.05 );
-                if ( direction != fheroes2::Point() && ( dialogChanged || direction != _dialogDirection || _dialogRepeat >= 0.18 ) ) {
+                if ( !dialogChanged && direction != fheroes2::Point() && ( direction != _dialogDirection || _dialogRepeat >= 0.18 ) ) {
                     focused = nextDialogButton( buttons, focused, directionX, directionY );
                     _dialogRepeat = 0.0;
                 }
-                else if ( direction == fheroes2::Point() ) {
+                else if ( dialogChanged || direction == fheroes2::Point() ) {
                     _dialogRepeat = 0.0;
                 }
                 _dialogDirection = direction;
                 if ( focused != fheroes2::get3DSDialogFocus() ) {
                     fheroes2::set3DSDialogFocus( focused );
-                    updateDisplay = true;
                 }
                 const auto selected = std::find_if( buttons.begin(), buttons.end(), [focused]( const auto & button ) { return button.first == focused; } );
                 if ( selected != buttons.end() && !_touchGate.active() ) {
@@ -246,9 +245,10 @@ namespace EventProcessing
                     events._emulatedPointerPos = { static_cast<double>( point.x ), static_cast<double>( point.y ) };
             }
             else {
-                const int width = fheroes2::is3DSAdventureLayout() ? 400 : display.width();
-                const int height = fheroes2::is3DSAdventureLayout() ? 240 : display.height();
-                if ( std::abs( circle.dx ) > 20 || std::abs( circle.dy ) > 20 ) {
+                const bool adventureLayout = fheroes2::is3DSAdventureLayout();
+                const int width = adventureLayout ? 400 : display.width();
+                const int height = adventureLayout ? 240 : display.height();
+                if ( !_touchGate.active() && ( std::abs( circle.dx ) > 20 || std::abs( circle.dy ) > 20 ) ) {
                     const double x = fheroes2::input3DS::cursorAxis( events._emulatedPointerPos.x, circle.dx, elapsed, width );
                     const double y = fheroes2::input3DS::cursorAxis( events._emulatedPointerPos.y, -circle.dy, elapsed, height );
                     const fheroes2::Point point( static_cast<int32_t>( x ), static_cast<int32_t>( y ) );
@@ -256,7 +256,21 @@ namespace EventProcessing
                         events.onMouseMotionEvent( point );
                     }
                     events._emulatedPointerPos = { x, y };
+                    if ( adventureLayout ) {
+                        const int edgeX = ( circle.dx < -20 && x <= 8.0 ) ? -1 : ( ( circle.dx > 20 && x >= width - 9.0 ) ? 1 : 0 );
+                        const int edgeY = ( circle.dy > 20 && y <= 24.0 ) ? -1 : ( ( circle.dy < -20 && y >= height - 9.0 ) ? 1 : 0 );
+                        fheroes2::set3DSAdventureEdgeScroll( { edgeX, edgeY } );
+                    }
+                    else {
+                        fheroes2::set3DSAdventureEdgeScroll( {} );
+                    }
                 }
+                else {
+                    fheroes2::set3DSAdventureEdgeScroll( {} );
+                }
+            }
+            if ( dialogFreePointer || nativeDialog || battleView ) {
+                fheroes2::set3DSAdventureEdgeScroll( {} );
             }
             _wasBattleView = battleView;
             _wasDialogFreePointer = dialogFreePointer;

@@ -37,6 +37,8 @@ namespace fheroes2
     // The adventure UI uses native pixel regions of the 640x480 game canvas.
     void set3DSAdventureLayout( bool enabled );
     bool is3DSAdventureLayout();
+    void set3DSAdventureEdgeScroll( Point direction );
+    Point get3DSAdventureEdgeScroll();
     // Battle keeps its original 640x480 canvas, uniformly scales its field to
     // 380 pixels wide, and projects the existing footer onto the bottom screen.
     void enterBattle3DSView();

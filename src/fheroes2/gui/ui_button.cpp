@@ -641,6 +641,17 @@ namespace fheroes2
     {
         LocalEvent & le = LocalEvent::Get();
 
+#if defined( TARGET_NINTENDO_3DS )
+        if ( !_button.empty() && get3DSDialogFocus() != _last3DSFocus ) {
+            std::vector<const ButtonBase *> focusButtons;
+            focusButtons.reserve( _button.size() );
+            for ( const auto & button : _button ) {
+                focusButtons.push_back( button.get() );
+            }
+            sync3DSDialogFocus( _last3DSFocus, focusButtons.data(), focusButtons.size() );
+        }
+#endif
+
         for ( const auto & button : _button ) {
             if ( button->isEnabled() ) {
                 button->drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( button->area() ) );
@@ -1016,4 +1027,48 @@ namespace fheroes2
         releasedText.draw( releasedTextOffset.x, ( buttonSize.height - releasedText.height( buttonSize.width ) ) / 2, buttonSize.width, releasedState );
         pressedText.draw( pressedTextOffset.x, ( buttonSize.height - pressedText.height( buttonSize.width ) ) / 2 + 1, buttonSize.width, pressedState );
     }
+
+#if defined( TARGET_NINTENDO_3DS )
+    bool sync3DSDialogFocus( const void *& lastFocus, const ButtonBase * const * buttons, const size_t count )
+    {
+        const void * currentFocus = get3DSDialogFocus();
+        if ( currentFocus == lastFocus ) {
+            return false;
+        }
+
+        const void * previousFocus = lastFocus;
+        lastFocus = currentFocus;
+
+        Display & display = Display::instance();
+        Rect dirtyRoi;
+        for ( size_t i = 0; i < count; ++i ) {
+            const ButtonBase * button = buttons[i];
+            if ( button == nullptr || !button->isVisible() ) {
+                continue;
+            }
+            if ( button != previousFocus && button != currentFocus ) {
+                continue;
+            }
+            if ( button->draw( display ) ) {
+                const Rect & area = button->area();
+                if ( dirtyRoi == Rect() ) {
+                    dirtyRoi = area;
+                }
+                else {
+                    const int32_t left = std::min( dirtyRoi.x, area.x );
+                    const int32_t top = std::min( dirtyRoi.y, area.y );
+                    const int32_t right = std::max( dirtyRoi.x + dirtyRoi.width, area.x + area.width );
+                    const int32_t bottom = std::max( dirtyRoi.y + dirtyRoi.height, area.y + area.height );
+                    dirtyRoi = { left, top, right - left, bottom - top };
+                }
+            }
+        }
+
+        if ( dirtyRoi != Rect() ) {
+            display.render( dirtyRoi );
+            return true;
+        }
+        return false;
+    }
+#endif
 }

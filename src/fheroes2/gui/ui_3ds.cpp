@@ -22,7 +22,9 @@
 #include "ui_3ds.h"
 
 #include <algorithm>
+#include <array>
 #include <memory>
+#include <vector>
 #if defined( TARGET_NINTENDO_3DS )
 #include <3ds.h>
 #endif
@@ -46,20 +48,120 @@
 
 namespace
 {
-    fheroes2::Sprite artwork( const fheroes2::threeDSUIAssets::Asset & asset, int width, int height )
+    const fheroes2::Image & decodeAsset( const fheroes2::threeDSUIAssets::Asset & asset )
     {
-        fheroes2::Image original( asset.width, asset.height );
-        original._disableTransformLayer();
+        struct CachedSource
+        {
+            const uint8_t * data{ nullptr };
+            fheroes2::Image image;
+        };
+
+        static std::vector<CachedSource> cache;
+        for ( const auto & entry : cache ) {
+            if ( entry.data == asset.data ) {
+                return entry.image;
+            }
+        }
+
+        CachedSource decoded;
+        decoded.data = asset.data;
+        decoded.image.resize( asset.width, asset.height );
+        decoded.image._disableTransformLayer();
         const auto pixels = Compression::unzipData( asset.data, asset.size, static_cast<size_t>( asset.width ) * asset.height );
-        if ( pixels.size() == static_cast<size_t>( asset.width ) * asset.height )
-            std::copy( pixels.begin(), pixels.end(), original.image() );
-        else
-            original.fill( fheroes2::GetColorId( 70, 40, 20 ) );
+        if ( pixels.size() == static_cast<size_t>( asset.width ) * asset.height ) {
+            std::copy( pixels.begin(), pixels.end(), decoded.image.image() );
+        }
+        else {
+            decoded.image.fill( fheroes2::GetColorId( 70, 40, 20 ) );
+        }
+
+        cache.push_back( std::move( decoded ) );
+        return cache.back().image;
+    }
+
+    fheroes2::Sprite resize9Slice( const fheroes2::Image & src, const int width, const int height, const int border )
+    {
         fheroes2::Sprite result( width, height, 0, 0 );
         result._disableTransformLayer();
-        result.reset();
-        fheroes2::Resize( original, result );
+        if ( width <= 0 || height <= 0 ) {
+            return result;
+        }
+
+        if ( src.width() == width && src.height() == height ) {
+            fheroes2::Copy( src, result );
+            return result;
+        }
+
+        const int bx = std::min( { border, src.width() / 2 - 1, width / 2 } );
+        const int by = std::min( { border, src.height() / 2 - 1, height / 2 } );
+        if ( bx <= 0 || by <= 0 ) {
+            result.reset();
+            fheroes2::Resize( src, result );
+            return result;
+        }
+
+        const std::array<int, 4> sxBounds{ 0, bx, src.width() - bx, src.width() };
+        const std::array<int, 4> syBounds{ 0, by, src.height() - by, src.height() };
+        const std::array<int, 4> dxBounds{ 0, bx, width - bx, width };
+        const std::array<int, 4> dyBounds{ 0, by, height - by, height };
+
+        const uint8_t * srcPixels = src.image();
+        uint8_t * dstPixels = result.image();
+        const int srcW = src.width();
+
+        for ( size_t r = 0; r < 3; ++r ) {
+            const int dy0 = dyBounds[r];
+            const int dh = dyBounds[r + 1] - dy0;
+            const int sy0 = syBounds[r];
+            const int sh = syBounds[r + 1] - sy0;
+            if ( dh <= 0 || sh <= 0 ) {
+                continue;
+            }
+            for ( size_t c = 0; c < 3; ++c ) {
+                const int dx0 = dxBounds[c];
+                const int dw = dxBounds[c + 1] - dx0;
+                const int sx0 = sxBounds[c];
+                const int sw = sxBounds[c + 1] - sx0;
+                if ( dw <= 0 || sw <= 0 ) {
+                    continue;
+                }
+                for ( int y = 0; y < dh; ++y ) {
+                    const int sy = sy0 + ( y * sh ) / dh;
+                    const uint8_t * srcRow = srcPixels + static_cast<size_t>( sy ) * srcW + sx0;
+                    uint8_t * dstRow = dstPixels + static_cast<size_t>( dy0 + y ) * width + dx0;
+                    for ( int x = 0; x < dw; ++x ) {
+                        dstRow[x] = srcRow[( x * sw ) / dw];
+                    }
+                }
+            }
+        }
         return result;
+    }
+
+    fheroes2::Sprite artwork( const fheroes2::threeDSUIAssets::Asset & asset, const int width, const int height, const int border )
+    {
+        struct CachedScaled
+        {
+            const uint8_t * data{ nullptr };
+            int width{ 0 };
+            int height{ 0 };
+            int border{ 0 };
+            fheroes2::Sprite sprite;
+        };
+
+        static std::vector<CachedScaled> cache;
+        for ( const auto & entry : cache ) {
+            if ( entry.data == asset.data && entry.width == width && entry.height == height && entry.border == border ) {
+                return entry.sprite;
+            }
+        }
+
+        auto sprite = resize9Slice( decodeAsset( asset ), width, height, border );
+        if ( cache.size() >= 32 ) {
+            cache.erase( cache.begin() );
+        }
+        cache.push_back( { asset.data, width, height, border, sprite } );
+        return sprite;
     }
 }
 
@@ -68,7 +170,7 @@ namespace fheroes2
     void draw3DSPanel( const Rect & area, const std::string & title )
     {
         const auto & asset = area.width > 320 ? threeDSUIAssets::panel_top : threeDSUIAssets::panel_bottom;
-        const auto panel = artwork( asset, area.width, area.height );
+        const auto panel = artwork( asset, area.width, area.height, 24 );
         Copy( panel, 0, 0, Display::instance(), area.x, area.y, area.width, area.height );
         if ( !title.empty() ) {
             Text text( title, FontType::normalYellow() );
@@ -78,21 +180,18 @@ namespace fheroes2
 
     ButtonSprite make3DSButton( const std::string & label, const Rect & area )
     {
-        auto released = artwork( threeDSUIAssets::button_default, area.width, area.height );
-        auto pressed = released;
-        auto focused = released;
-        auto disabled = released;
-        ApplyPalette( pressed, PAL::GetPalette( PAL::PaletteType::DARKENING ) );
-        ApplyPalette( focused, PAL::GetPalette( PAL::PaletteType::DARKENING ) );
-        ApplyPalette( disabled, PAL::GetPalette( PAL::PaletteType::DARKENING ) );
-        ApplyPalette( disabled, PAL::GetPalette( PAL::PaletteType::DARKENING ) );
-        Text text( label, FontType::normalWhite() );
-        const int y = std::max<int32_t>( 2, ( area.height - text.height( area.width - 12 ) ) / 2 );
-        text.draw( 6, y, area.width - 12, released );
-        text.draw( 6, y, area.width - 12, focused );
-        text.draw( 7, y + 1, area.width - 12, pressed );
-        Text inactive( label, FontType::normalWhite() );
-        inactive.draw( 6, y, area.width - 12, disabled );
+        auto released = artwork( threeDSUIAssets::button_default, area.width, area.height, 10 );
+        auto focused = artwork( threeDSUIAssets::button_focused, area.width, area.height, 10 );
+        auto pressed = artwork( threeDSUIAssets::button_pressed, area.width, area.height, 10 );
+        auto disabled = artwork( threeDSUIAssets::button_disabled, area.width, area.height, 10 );
+        const Text releasedText( label, FontType::normalWhite() );
+        const Text focusedText( label, FontType::normalYellow() );
+        const Text disabledText( label, FontType( FontSize::NORMAL, FontColor::GRAY ) );
+        const int y = std::max<int32_t>( 2, ( area.height - releasedText.height( area.width - 12 ) ) / 2 );
+        releasedText.draw( 6, y, area.width - 12, released );
+        focusedText.draw( 6, y, area.width - 12, focused );
+        releasedText.draw( 7, y + 1, area.width - 12, pressed );
+        disabledText.draw( 6, y, area.width - 12, disabled );
         ButtonSprite button( area.x, area.y, std::move( released ), std::move( pressed ), std::move( disabled ) );
         button.setFocusedSprite( std::move( focused ) );
         return button;
@@ -158,6 +257,9 @@ namespace fheroes2
         const int rows = ( static_cast<int>( labels.size() ) + columns - 1 ) / columns;
         const int height = std::min<int32_t>( 42, 176 / std::max<int32_t>( rows, 1 ) - 6 );
         std::vector<std::unique_ptr<ButtonSprite>> buttons;
+        std::vector<const ButtonBase *> focusButtons;
+        buttons.reserve( labels.size() );
+        focusButtons.reserve( labels.size() );
         for ( size_t i = 0; i < labels.size(); ++i ) {
             const int row = static_cast<int>( i ) / columns;
             const int col = static_cast<int>( i ) % columns;
@@ -166,15 +268,22 @@ namespace fheroes2
             if ( i < enabled.size() && !enabled[i] )
                 buttons.back()->disable();
             buttons.back()->draw();
+            focusButtons.push_back( buttons.back().get() );
         }
         if ( initialSelection >= 0 && static_cast<size_t>( initialSelection ) < buttons.size() && buttons[initialSelection]->isEnabled() ) {
+            const void * previousFocus = get3DSDialogFocus();
             set3DSDialogFocus( buttons[initialSelection].get() );
-            buttons[initialSelection]->draw();
+            for ( auto & button : buttons ) {
+                if ( button.get() == previousFocus || button.get() == buttons[initialSelection].get() ) {
+                    button->draw();
+                }
+            }
         }
         if ( maximumScroll > 0 ) {
             Text( _( "L/R: scroll information" ), FontType::smallWhite() ).draw( 24, 456, 272, Display::instance() );
         }
         Display::instance().render();
+        const void * lastFocus = get3DSDialogFocus();
         auto & events = LocalEvent::Get();
         while ( events.HandleEvents() ) {
 #if defined( TARGET_NINTENDO_3DS )
@@ -192,13 +301,13 @@ namespace fheroes2
                     Display::instance().render();
                 }
             }
+            sync3DSDialogFocus( lastFocus, focusButtons.data(), focusButtons.size() );
 #endif
             if ( cancel && events.isKeyPressed( Key::KEY_ESCAPE ) )
                 return -1;
             for ( size_t i = 0; i < buttons.size(); ++i ) {
                 auto & button = *buttons[i];
                 button.drawOnState( events.isMouseLeftButtonPressedAndHeldInArea( button.area() ) );
-                button.draw();
                 if ( button.isEnabled() && events.MouseClickLeft( button.area() ) )
                     return static_cast<int>( i );
             }

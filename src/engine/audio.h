@@ -42,6 +42,11 @@ namespace Audio
     void Unmute();
 
     bool isValid();
+
+#if defined( TARGET_NINTENDO_3DS )
+    void onSuspend3DS();
+    void onResume3DS();
+#endif
 }
 
 namespace Mixer

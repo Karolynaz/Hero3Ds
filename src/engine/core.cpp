@@ -92,6 +92,17 @@ namespace
 
 #if defined( TARGET_NINTENDO_3DS )
     std::set<System::SystemInitializationComponent> initializedComponents;
+    aptHookCookie threeDSAptCookie;
+
+    void onThreeDSAptEvent( const APT_HookType hook, void * )
+    {
+        if ( hook == APTHOOK_ONSUSPEND || hook == APTHOOK_ONSLEEP ) {
+            Audio::onSuspend3DS();
+        }
+        else if ( hook == APTHOOK_ONRESTORE || hook == APTHOOK_ONWAKEUP ) {
+            Audio::onResume3DS();
+        }
+    }
 
     bool initCoreInternally( const std::set<System::SystemInitializationComponent> & components )
     {
@@ -100,6 +111,7 @@ namespace
         gfxSetScreenFormat( GFX_TOP, GSP_BGR8_OES );
         gfxSetScreenFormat( GFX_BOTTOM, GSP_BGR8_OES );
         osSetSpeedupEnable( true );
+        aptHook( &threeDSAptCookie, onThreeDSAptEvent, nullptr );
         initializedComponents = components;
         Audio::Init();
         LocalEvent::Get().initController();
@@ -111,6 +123,7 @@ namespace
     {
         LocalEvent::Get().CloseController();
         Audio::Quit();
+        aptUnhook( &threeDSAptCookie );
         gfxExit();
         initializedComponents.clear();
     }

@@ -1351,37 +1351,58 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
                 _gameArea.QueueEventProcessing();
             }
             else {
-                if ( fheroes2::Cursor::isFocusActive() && conf.ScrollSpeed() != SCROLL_SPEED_NONE
+                if ( fheroes2::Cursor::isFocusActive() && conf.ScrollSpeed() != SCROLL_SPEED_NONE ) {
 #if defined( TARGET_NINTENDO_3DS )
-                     && !fheroes2::is3DSAdventureLayout()
-#endif
-                ) {
-                    int scrollDirection = SCROLL_NONE;
-
-                    if ( isScrollLeft( le.getMouseCursorPos() ) ) {
-                        scrollDirection |= SCROLL_LEFT;
-                    }
-                    else if ( isScrollRight( le.getMouseCursorPos() ) ) {
-                        scrollDirection |= SCROLL_RIGHT;
-                    }
-                    if ( isScrollTop( le.getMouseCursorPos() ) ) {
-                        scrollDirection |= SCROLL_TOP;
-                    }
-                    else if ( isScrollBottom( le.getMouseCursorPos() ) ) {
-                        scrollDirection |= SCROLL_BOTTOM;
-                    }
-
-                    if ( scrollDirection != SCROLL_NONE && _gameArea.isFastScrollEnabled() ) {
-                        if ( Game::validateAnimationDelay( Game::DelayType::SCROLL_START_DELAY ) && fastScrollRepeatCount < fastScrollStartThreshold ) {
-                            ++fastScrollRepeatCount;
+                    if ( fheroes2::is3DSAdventureLayout() ) {
+                        const fheroes2::Point edge = fheroes2::get3DSAdventureEdgeScroll();
+                        int scrollDirection = SCROLL_NONE;
+                        if ( edge.x < 0 ) {
+                            scrollDirection |= SCROLL_LEFT;
                         }
-
-                        if ( fastScrollRepeatCount >= fastScrollStartThreshold ) {
+                        else if ( edge.x > 0 ) {
+                            scrollDirection |= SCROLL_RIGHT;
+                        }
+                        if ( edge.y < 0 ) {
+                            scrollDirection |= SCROLL_TOP;
+                        }
+                        else if ( edge.y > 0 ) {
+                            scrollDirection |= SCROLL_BOTTOM;
+                        }
+                        if ( scrollDirection != SCROLL_NONE ) {
                             _gameArea.SetScroll( scrollDirection );
                         }
-                    }
-                    else {
                         fastScrollRepeatCount = 0;
+                    }
+                    else
+#endif
+                    {
+                        int scrollDirection = SCROLL_NONE;
+
+                        if ( isScrollLeft( le.getMouseCursorPos() ) ) {
+                            scrollDirection |= SCROLL_LEFT;
+                        }
+                        else if ( isScrollRight( le.getMouseCursorPos() ) ) {
+                            scrollDirection |= SCROLL_RIGHT;
+                        }
+                        if ( isScrollTop( le.getMouseCursorPos() ) ) {
+                            scrollDirection |= SCROLL_TOP;
+                        }
+                        else if ( isScrollBottom( le.getMouseCursorPos() ) ) {
+                            scrollDirection |= SCROLL_BOTTOM;
+                        }
+
+                        if ( scrollDirection != SCROLL_NONE && _gameArea.isFastScrollEnabled() ) {
+                            if ( Game::validateAnimationDelay( Game::DelayType::SCROLL_START_DELAY ) && fastScrollRepeatCount < fastScrollStartThreshold ) {
+                                ++fastScrollRepeatCount;
+                            }
+
+                            if ( fastScrollRepeatCount >= fastScrollStartThreshold ) {
+                                _gameArea.SetScroll( scrollDirection );
+                            }
+                        }
+                        else {
+                            fastScrollRepeatCount = 0;
+                        }
                     }
                 }
                 else {
@@ -1576,8 +1597,12 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
             if ( _gameArea.NeedScroll() && Game::validateAnimationDelay( Game::DelayType::SCROLL_DELAY ) ) {
                 assert( !_gameArea.isDragScroll() );
 
-                if ( isScrollLeft( le.getMouseCursorPos() ) || isScrollRight( le.getMouseCursorPos() ) || isScrollTop( le.getMouseCursorPos() )
-                     || isScrollBottom( le.getMouseCursorPos() ) ) {
+                if (
+#if defined( TARGET_NINTENDO_3DS )
+                    ( fheroes2::is3DSAdventureLayout() && fheroes2::get3DSAdventureEdgeScroll() != fheroes2::Point() ) ||
+#endif
+                    isScrollLeft( le.getMouseCursorPos() ) || isScrollRight( le.getMouseCursorPos() ) || isScrollTop( le.getMouseCursorPos() )
+                    || isScrollBottom( le.getMouseCursorPos() ) ) {
                     cursor.SetThemes( _gameArea.GetScrollCursor() );
                 }
 

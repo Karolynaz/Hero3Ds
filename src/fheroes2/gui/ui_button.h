@@ -405,6 +405,9 @@ namespace fheroes2
     private:
         std::vector<std::unique_ptr<ButtonBase>> _button;
         std::vector<int> _value;
+#if defined( TARGET_NINTENDO_3DS )
+        const void * _last3DSFocus{ nullptr };
+#endif
     };
 
     // This class is used for a situations when we need to disable a button for certain action
@@ -480,4 +483,14 @@ namespace fheroes2
 
     void renderTextOnButton( Image & releasedState, Image & pressedState, const std::string & text, const Point & releasedTextOffset, const Point & pressedTextOffset,
                              const Size & buttonSize, const FontColor fontColor );
+
+#if defined( TARGET_NINTENDO_3DS )
+    bool sync3DSDialogFocus( const void *& lastFocus, const ButtonBase * const * buttons, size_t count );
+
+    template <size_t N>
+    bool sync3DSDialogFocus( const void *& lastFocus, const ButtonBase * const ( &buttons )[N] )
+    {
+        return sync3DSDialogFocus( lastFocus, buttons, N );
+    }
+#endif
 }
