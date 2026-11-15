@@ -1421,12 +1421,7 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
                     _statusPanel.QueueEventProcessing();
                 }
                 // Cursor is over the buttons panel
-                else if ( ( !isHiddenInterface || conf.ShowButtons() )
-                          && ( le.isMouseCursorPosInArea( _buttonsPanel.GetRect() )
-#if defined( TARGET_NINTENDO_3DS )
-                               || le.isMouseCursorPosInArea( _buttonsPanel.endTurnArea() )
-#endif
-                                   ) ) {
+                else if ( ( !isHiddenInterface || conf.ShowButtons() ) && le.isMouseCursorPosInArea( _buttonsPanel.GetRect() ) ) {
                     resetCursorIfNoNeedToScroll();
 
                     res = _buttonsPanel.queueEventProcessing();

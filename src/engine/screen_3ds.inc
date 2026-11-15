@@ -55,6 +55,10 @@ public:
     {
         return true;
     }
+    bool isMouseCursorActive() const override
+    {
+        return true;
+    }
     void toggleFullScreen() override {}
     void setVSync( const bool enabled ) override
     {

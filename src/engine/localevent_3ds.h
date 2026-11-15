@@ -248,7 +248,7 @@ namespace EventProcessing
                 const bool adventureLayout = fheroes2::is3DSAdventureLayout();
                 const int width = adventureLayout ? 400 : display.width();
                 const int height = adventureLayout ? 240 : display.height();
-                if ( !_touchGate.active() && ( std::abs( circle.dx ) > 20 || std::abs( circle.dy ) > 20 ) ) {
+                if ( !_touchGate.active() && !( held & KEY_TOUCH ) && ( std::abs( circle.dx ) > 20 || std::abs( circle.dy ) > 20 ) ) {
                     const double x = fheroes2::input3DS::cursorAxis( events._emulatedPointerPos.x, circle.dx, elapsed, width );
                     const double y = fheroes2::input3DS::cursorAxis( events._emulatedPointerPos.y, -circle.dy, elapsed, height );
                     const fheroes2::Point point( static_cast<int32_t>( x ), static_cast<int32_t>( y ) );
@@ -256,20 +256,29 @@ namespace EventProcessing
                         events.onMouseMotionEvent( point );
                     }
                     events._emulatedPointerPos = { x, y };
-                    if ( adventureLayout ) {
-                        const int edgeX = ( circle.dx < -20 && x <= 8.0 ) ? -1 : ( ( circle.dx > 20 && x >= width - 9.0 ) ? 1 : 0 );
-                        const int edgeY = ( circle.dy > 20 && y <= 24.0 ) ? -1 : ( ( circle.dy < -20 && y >= height - 9.0 ) ? 1 : 0 );
-                        fheroes2::set3DSAdventureEdgeScroll( { edgeX, edgeY } );
-                    }
-                    else {
-                        fheroes2::set3DSAdventureEdgeScroll( {} );
-                    }
+                    _edgeScrollArmed = adventureLayout;
+                }
+                if ( !adventureLayout || _touchGate.active() || ( held & KEY_TOUCH ) ) {
+                    _edgeScrollArmed = false;
+                    fheroes2::set3DSAdventureEdgeScroll( {} );
+                }
+                else if ( _edgeScrollArmed && events.getMouseCursorPos().y < height ) {
+                    const double x = events._emulatedPointerPos.x;
+                    const double y = events._emulatedPointerPos.y;
+                    const int edgeX = ( ( circle.dx < -20 && x <= 8.0 ) || ( x <= 4.0 && circle.dx <= 20 ) )
+                                          ? -1
+                                          : ( ( ( circle.dx > 20 && x >= width - 9.0 ) || ( x >= width - 5.0 && circle.dx >= -20 ) ) ? 1 : 0 );
+                    const int edgeY = ( ( circle.dy > 20 && y <= 24.0 ) || ( y <= 4.0 && circle.dy >= -20 ) )
+                                          ? -1
+                                          : ( ( ( circle.dy < -20 && y >= height - 9.0 ) || ( y >= height - 5.0 && circle.dy <= 20 ) ) ? 1 : 0 );
+                    fheroes2::set3DSAdventureEdgeScroll( { edgeX, edgeY } );
                 }
                 else {
                     fheroes2::set3DSAdventureEdgeScroll( {} );
                 }
             }
             if ( dialogFreePointer || nativeDialog || battleView ) {
+                _edgeScrollArmed = false;
                 fheroes2::set3DSAdventureEdgeScroll( {} );
             }
             _wasBattleView = battleView;
@@ -356,6 +365,7 @@ namespace EventProcessing
         fheroes2::PointBase2D<double> _battlePanRemainder;
         bool _wasBattleView{ false };
         bool _wasDialogFreePointer{ false };
+        bool _edgeScrollArmed{ false };
         fheroes2::PointBase2D<double> _dialogFreePointerPos;
         fheroes2::PointBase2D<double> _dialogPanRemainder;
         size_t _dialogScopeId{ 0 };

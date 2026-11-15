@@ -47,6 +47,7 @@
 #include "screen.h"
 #include "settings.h"
 #include "tools.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_constants.h"
 #include "ui_text.h"
@@ -79,16 +80,16 @@ void Interface::AdventureMap::reset()
     // Widgets use native screen pixels on the shared 640 x 480 canvas.
     // The backend crops its upper 400 x 240 and lower 320 x 240 regions.
     fheroes2::set3DSAdventureLayout( true );
-    fheroes2::Fill( fheroes2::Display::instance(), 0, 240, 320, 240, fheroes2::GetColorId( 0x51, 0x31, 0x18 ) );
+    fheroes2::draw3DSPanel( { 0, 240, 320, 240 } );
     conf.SetShowRadar( true );
     conf.SetShowIcons( true );
     conf.SetShowButtons( true );
     conf.SetShowStatus( true );
     conf.SetShowControlPanel( false );
-    _radar.SetPos( 8, 248 );
-    _iconsPanel.SetPos( 168, 248 );
-    _buttonsPanel.SetPos( 168, 400 );
-    _statusPanel.SetPos( 8, 408 );
+    _radar.SetPos( 12, 252 );
+    _iconsPanel.SetPos( 164, 252 );
+    _buttonsPanel.SetPos( 164, 394 );
+    _statusPanel.SetPos( 12, 402 );
 #else
     if ( isHideInterface ) {
         conf.SetShowControlPanel( true );
@@ -173,12 +174,26 @@ void Interface::AdventureMap::redraw( const uint32_t force )
         }
     }
 
-    if ( ( hideInterface && conf.ShowRadar() ) || ( combinedRedraw & ( REDRAW_RADAR_CURSOR | REDRAW_RADAR ) ) ) {
+#if defined( TARGET_NINTENDO_3DS )
+    if ( combinedRedraw & REDRAW_BORDER ) {
+        fheroes2::draw3DSPanel( { 0, 240, 320, 240 } );
+    }
+#endif
+
+    if ( ( hideInterface && conf.ShowRadar() ) || ( combinedRedraw & ( REDRAW_RADAR_CURSOR | REDRAW_RADAR ) )
+#if defined( TARGET_NINTENDO_3DS )
+         || ( combinedRedraw & REDRAW_BORDER )
+#endif
+    ) {
         // Redraw radar map only if `REDRAW_RADAR` is set.
         _radar._redraw( combinedRedraw & REDRAW_RADAR );
     }
 
-    if ( ( hideInterface && conf.ShowIcons() ) || ( combinedRedraw & REDRAW_ICONS ) ) {
+    if ( ( hideInterface && conf.ShowIcons() ) || ( combinedRedraw & REDRAW_ICONS )
+#if defined( TARGET_NINTENDO_3DS )
+         || ( combinedRedraw & REDRAW_BORDER )
+#endif
+    ) {
         _iconsPanel._redraw();
     }
     else if ( combinedRedraw & REDRAW_HEROES ) {
@@ -190,13 +205,17 @@ void Interface::AdventureMap::redraw( const uint32_t force )
 
     if ( ( hideInterface && conf.ShowButtons() ) || ( combinedRedraw & REDRAW_BUTTONS )
 #if defined( TARGET_NINTENDO_3DS )
-         || ( combinedRedraw & REDRAW_GAMEAREA )
+         || ( combinedRedraw & REDRAW_BORDER )
 #endif
     ) {
         _buttonsPanel._redraw();
     }
 
-    if ( ( hideInterface && conf.ShowStatus() ) || ( combinedRedraw & REDRAW_STATUS ) ) {
+    if ( ( hideInterface && conf.ShowStatus() ) || ( combinedRedraw & REDRAW_STATUS )
+#if defined( TARGET_NINTENDO_3DS )
+         || ( combinedRedraw & REDRAW_BORDER )
+#endif
+    ) {
         _statusPanel._redraw();
     }
 
