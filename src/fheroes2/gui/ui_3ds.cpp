@@ -92,8 +92,8 @@ namespace
             return result;
         }
 
-        const int bx = std::min( { border, src.width() / 2 - 1, width / 2 } );
-        const int by = std::min( { border, src.height() / 2 - 1, height / 2 } );
+        const int bx = std::min<int>( { border, src.width() / 2 - 1, width / 2 } );
+        const int by = std::min<int>( { border, src.height() / 2 - 1, height / 2 } );
         if ( bx <= 0 || by <= 0 ) {
             result.reset();
             fheroes2::Resize( src, result );
