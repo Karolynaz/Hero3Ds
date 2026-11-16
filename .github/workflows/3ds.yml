@@ -58,7 +58,7 @@ jobs:
           curl -fsSL -o /tmp/bannertool.zip https://github.com/Epicpkmn11/bannertool/releases/download/v1.2.2/bannertool.zip
           unzip -p /tmp/bannertool.zip linux-x86_64/bannertool > /usr/local/bin/bannertool
           chmod +x /usr/local/bin/bannertool
-          curl -fsSL -o /tmp/makerom.zip https://github.com/3DSGuy/Project_CTR/releases/download/makerom-v0.19.0/makerom-v0.19.0-ubuntu_x86_64.zip
+          curl -fsSL -o /tmp/makerom.zip https://github.com/3DSGuy/Project_CTR/releases/download/makerom-v0.18.4/makerom-v0.18.4-ubuntu_x86_64.zip
           unzip -p /tmp/makerom.zip makerom > /usr/local/bin/makerom
           chmod +x /usr/local/bin/makerom
           bannertool makebanner -i platform/3ds/cia/banner.png -a platform/3ds/cia/banner.wav -o build/3ds/banner.bnr
