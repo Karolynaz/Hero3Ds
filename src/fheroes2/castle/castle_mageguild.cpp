@@ -21,9 +21,13 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "castle.h" // IWYU pragma: associated
 #include "cursor.h"
@@ -37,15 +41,19 @@
 #include "localevent.h"
 #include "mageguild.h"
 #include "math_base.h"
+#include "pal.h"
 #include "screen.h"
 #include "settings.h"
 #include "spell.h"
 #include "spell_storage.h"
 #include "statusbar.h"
+#include "timing.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_mage_guild.h"
+#include "ui_text.h"
 #include "ui_tool.h"
 
 namespace
@@ -56,9 +64,319 @@ namespace
 Castle::MageGuildDialogResult Castle::_openMageGuild( const Heroes * hero ) const
 {
 #if defined( TARGET_NINTENDO_3DS )
-    const fheroes2::Scope3DSCastleView castleSubView3DS( true );
-#endif
+    {
+        const bool isEvil = Settings::Get().isEvilInterfaceEnabled();
+        fheroes2::Display & display = fheroes2::Display::instance();
+        const fheroes2::ImageRestorer screenRestorer( display, 0, 0, display.width(), display.height() );
+        const fheroes2::Scope3DSCastleBuildView mageViewScope;
 
+        const int guildLevel = GetLevelMageGuild();
+        const bool haveLibraryCapability = HaveLibraryCapability();
+        const bool hasLibrary = isLibraryBuilt();
+        const bool canSwitchCastles = ( GetKingdom().GetCastles().size() > 1 );
+
+        struct SpellSlot3DS final
+        {
+            int level{ 1 };
+            Spell spell;
+            fheroes2::Rect rect;
+        };
+
+        std::array<std::vector<SpellSlot3DS>, 5> levelSlots;
+        for ( size_t lv = 0; lv < 5; ++lv ) {
+            const int32_t spellsLevel = static_cast<int32_t>( lv ) + 1;
+            const int32_t count = MageGuild::getMaxSpellsCount( spellsLevel, haveLibraryCapability );
+            SpellStorage spells = GetMageGuild().GetSpells( guildLevel, hasLibrary, spellsLevel );
+            spells.resize( count, Spell::NONE );
+
+            const int32_t rowY = 25 + static_cast<int32_t>( lv ) * 42;
+            const int32_t cardW = ( count > 0 ) ? std::min<int32_t>( 86, ( 354 - ( count - 1 ) * 3 ) / count ) : 86;
+            for ( int32_t c = 0; c < count; ++c ) {
+                const int32_t cx = 40 + c * ( cardW + 3 );
+                levelSlots[lv].push_back( { spellsLevel, spells[c], { cx, rowY, cardW, 38 } } );
+            }
+        }
+
+        size_t selRow = 0;
+        size_t selCol = 0;
+
+        const fheroes2::Sprite & stoneTile = Assets::getImage( isEvil ? ICN::STONEBAK_EVIL : ICN::STONEBAK, 0 );
+        fheroes2::Image topBg( 400, 240 );
+        topBg.reset();
+        for ( int32_t y = 0; y < 240; y += stoneTile.height() ) {
+            const int32_t h = std::min<int32_t>( stoneTile.height(), 240 - y );
+            for ( int32_t x = 0; x < 400; x += stoneTile.width() ) {
+                const int32_t w = std::min<int32_t>( stoneTile.width(), 400 - x );
+                fheroes2::Copy( stoneTile, 0, 0, topBg, x, y, w, h );
+            }
+        }
+
+        auto renderTopGuild = [&]() {
+            fheroes2::Copy( topBg, 0, 0, display, 0, 0, 400, 240 );
+
+            std::string topTitle = _( "Mage Guild, Level %{level}" );
+            StringReplace( topTitle, "%{level}", guildLevel );
+            if ( hasLibrary ) {
+                topTitle += " + ";
+                topTitle += _( "Library" );
+            }
+            const fheroes2::Text hdrTxt( topTitle, fheroes2::FontType::normalYellow() );
+            hdrTxt.draw( 8, 5, display );
+
+            if ( canSwitchCastles ) {
+                const fheroes2::Text lrHint( _( "L/R: Town" ), fheroes2::FontType::smallWhite() );
+                lrHint.draw( 392 - lrHint.width(), 8, display );
+            }
+
+            const uint8_t cardBg = fheroes2::GetColorId( 0x28, 0x16, 0x0C );
+            const uint8_t lockedBg = fheroes2::GetColorId( 0x1A, 0x10, 0x08 );
+            const uint8_t brightGold = fheroes2::GetColorId( 0xFF, 0xEA, 0x40 );
+            const uint8_t warmGold = fheroes2::GetColorId( 0xC0, 0x94, 0x34 );
+            const uint8_t darkFrame = fheroes2::GetColorId( 0x16, 0x0C, 0x06 );
+
+            for ( size_t lv = 0; lv < 5; ++lv ) {
+                const int32_t rowY = 25 + static_cast<int32_t>( lv ) * 42;
+                const bool unlocked = static_cast<int32_t>( lv ) + 1 <= guildLevel;
+
+                // Level label badge
+                fheroes2::Fill( display, 6, rowY, 30, 38, unlocked ? fheroes2::GetColorId( 0x34, 0x1E, 0x10 ) : lockedBg );
+                fheroes2::DrawRect( display, { 6, rowY, 30, 38 }, unlocked ? warmGold : darkFrame );
+                const fheroes2::Text lvTxt( "Lv." + std::to_string( lv + 1 ), unlocked ? fheroes2::FontType::smallYellow() : fheroes2::FontType::smallWhite() );
+                lvTxt.draw( 6 + ( 30 - lvTxt.width() ) / 2, rowY + 14, display );
+
+                const auto & row = levelSlots[lv];
+                for ( size_t c = 0; c < row.size(); ++c ) {
+                    const SpellSlot3DS & slot = row[c];
+                    const bool isSel = ( lv == selRow && c == selCol );
+                    const bool hasSpell = slot.spell.isValid();
+
+                    fheroes2::Fill( display, slot.rect.x, slot.rect.y, slot.rect.width, slot.rect.height, hasSpell ? cardBg : lockedBg );
+
+                    if ( hasSpell ) {
+                        const fheroes2::Sprite & spSpr = Assets::getImage( ICN::SPELLS, slot.spell.IndexSprite() );
+                        if ( !spSpr.empty() && spSpr.width() > 0 && spSpr.height() > 0 ) {
+                            const int32_t iconMax = 26;
+                            const double scale = std::min( static_cast<double>( iconMax ) / spSpr.width(), static_cast<double>( iconMax ) / spSpr.height() );
+                            const int32_t dw = std::max<int32_t>( 1, static_cast<int32_t>( spSpr.width() * scale ) );
+                            const int32_t dh = std::max<int32_t>( 1, static_cast<int32_t>( spSpr.height() * scale ) );
+                            fheroes2::Image scaled( dw, dh );
+                            scaled.reset();
+                            fheroes2::Resize( spSpr, scaled );
+                            fheroes2::Blit( scaled, display, slot.rect.x + 3 + ( iconMax - dw ) / 2, slot.rect.y + 6 + ( iconMax - dh ) / 2 );
+                        }
+
+                        const int32_t nameX = slot.rect.x + 31;
+                        const int32_t nameW = std::max<int32_t>( 10, slot.rect.width - 34 );
+                        const fheroes2::Text spName( slot.spell.GetName(), fheroes2::FontType::smallWhite() );
+                        spName.drawInRoi( nameX, slot.rect.y + 5, nameW, display, { nameX, slot.rect.y + 3, nameW, slot.rect.height - 6 } );
+                    }
+                    else {
+                        const fheroes2::Text emptyTxt( unlocked ? "-" : _( "Locked" ), fheroes2::FontType::smallWhite() );
+                        emptyTxt.draw( slot.rect.x + ( slot.rect.width - emptyTxt.width() ) / 2, slot.rect.y + 14, display );
+                    }
+
+                    if ( isSel ) {
+                        fheroes2::DrawRect( display, slot.rect, brightGold );
+                        fheroes2::DrawRect( display, { slot.rect.x + 1, slot.rect.y + 1, slot.rect.width - 2, slot.rect.height - 2 }, warmGold );
+                    }
+                    else {
+                        fheroes2::DrawRect( display, slot.rect, unlocked ? warmGold : darkFrame );
+                    }
+                }
+            }
+        };
+
+        std::string defaultStatusBarText = ( hero == nullptr || !hero->HaveSpellBook() )
+                                               ? _( "The above spells are available here." )
+                                               : _( "The spells the hero can learn have been added to their book." );
+
+        fheroes2::ButtonSprite btnExit = fheroes2::make3DSButton( _( "Exit" ), { 101, 422, 118, 30 } );
+        const fheroes2::Rect descBoxRect( 24, 334, 272, 42 );
+        fheroes2::Image descBoxBg;
+        std::string activeDescStr;
+        int32_t descMaxScroll = 0;
+        int32_t descLastOffset = -1;
+        fheroes2::Time descTimer;
+
+        auto drawScrollingDesc = [&]( const bool forceDraw ) -> bool {
+            if ( activeDescStr.empty() || descBoxBg.empty() ) {
+                return false;
+            }
+            int32_t offsetY = 0;
+            if ( descMaxScroll > 0 ) {
+                constexpr double pauseSec = 1.4;
+                constexpr double scrollSpeed = 16.0;
+                const double scrollSec = static_cast<double>( descMaxScroll ) / scrollSpeed;
+                const double cycleSec = pauseSec + scrollSec + pauseSec;
+                const double phase = std::fmod( descTimer.getS(), cycleSec );
+                if ( phase < pauseSec ) {
+                    offsetY = 0;
+                }
+                else if ( phase < pauseSec + scrollSec ) {
+                    offsetY = std::min<int32_t>( descMaxScroll, static_cast<int32_t>( ( phase - pauseSec ) * scrollSpeed ) );
+                }
+                else {
+                    offsetY = descMaxScroll;
+                }
+            }
+            if ( !forceDraw && offsetY == descLastOffset ) {
+                return false;
+            }
+            fheroes2::Copy( descBoxBg, 0, 0, display, descBoxRect.x, descBoxRect.y, descBoxRect.width, descBoxRect.height );
+            const fheroes2::Text dTxt( activeDescStr, fheroes2::FontType::smallWhite() );
+            dTxt.drawInRoi( descBoxRect.x, descBoxRect.y - offsetY, descBoxRect.width, display, descBoxRect );
+            descLastOffset = offsetY;
+            return true;
+        };
+
+        auto renderBottomGuild = [&]() {
+            fheroes2::draw3DSPanel( { 0, 240, 320, 240 } );
+            fheroes2::Text cName( GetName(), fheroes2::FontType::normalYellow() );
+            if ( cName.width() > 280 ) {
+                cName.fitToOneRow( 280 );
+            }
+            cName.draw( ( 320 - cName.width() ) / 2, 250, display );
+
+            const uint8_t insetBg = fheroes2::GetColorId( 0x24, 0x14, 0x0A );
+            const uint8_t insetGold = fheroes2::GetColorId( 0xC0, 0x94, 0x34 );
+
+            const fheroes2::Rect box( 16, 268, 288, 112 );
+            fheroes2::Fill( display, box.x, box.y, box.width, box.height, insetBg );
+            fheroes2::DrawRect( display, box, insetGold );
+
+            const SpellSlot3DS & slot = levelSlots[selRow][selCol];
+            activeDescStr.clear();
+            descMaxScroll = 0;
+
+            if ( slot.spell.isValid() ) {
+                const fheroes2::Rect iconBox( 24, 275, 52, 52 );
+                fheroes2::Fill( display, iconBox.x, iconBox.y, iconBox.width, iconBox.height, fheroes2::GetColorId( 0x34, 0x20, 0x12 ) );
+                fheroes2::DrawRect( display, iconBox, insetGold );
+
+                const fheroes2::Sprite & spSpr = Assets::getImage( ICN::SPELLS, slot.spell.IndexSprite() );
+                if ( !spSpr.empty() && spSpr.width() > 0 && spSpr.height() > 0 ) {
+                    const int32_t maxD = 46;
+                    if ( spSpr.width() <= maxD && spSpr.height() <= maxD ) {
+                        fheroes2::Blit( spSpr, display, iconBox.x + ( iconBox.width - spSpr.width() ) / 2,
+                                        iconBox.y + ( iconBox.height - spSpr.height() ) / 2 );
+                    }
+                    else {
+                        const double scale = std::min( static_cast<double>( maxD ) / spSpr.width(), static_cast<double>( maxD ) / spSpr.height() );
+                        const int32_t dw = std::max<int32_t>( 1, static_cast<int32_t>( spSpr.width() * scale ) );
+                        const int32_t dh = std::max<int32_t>( 1, static_cast<int32_t>( spSpr.height() * scale ) );
+                        fheroes2::Image scaled( dw, dh );
+                        scaled.reset();
+                        fheroes2::Resize( spSpr, scaled );
+                        fheroes2::Blit( scaled, display, iconBox.x + ( iconBox.width - dw ) / 2, iconBox.y + ( iconBox.height - dh ) / 2 );
+                    }
+                }
+
+                fheroes2::Text spTitle( slot.spell.GetName(), fheroes2::FontType::normalYellow() );
+                if ( spTitle.width() > 212 ) {
+                    spTitle.fitToOneRow( 212 );
+                }
+                spTitle.draw( 84, 276, display );
+
+                std::string meta = std::string( _( "Level" ) ) + " " + std::to_string( slot.spell.Level() ) + "   SP: "
+                                   + std::to_string( slot.spell.spellPoints( hero ) );
+                const fheroes2::Text metaTxt( std::move( meta ), fheroes2::FontType::smallYellow() );
+                metaTxt.draw( 84, 296, display );
+
+                const std::string kind = slot.spell.isCombat() ? _( "Combat Spell" ) : _( "Adventure Spell" );
+                const fheroes2::Text kindTxt( kind, fheroes2::FontType::smallWhite() );
+                kindTxt.draw( 84, 312, display );
+
+                activeDescStr = slot.spell.GetDescription();
+            }
+            else {
+                std::string lockedMsg = _( "Requires Mage Guild, Level %{level}." );
+                StringReplace( lockedMsg, "%{level}", slot.level );
+                activeDescStr = std::move( lockedMsg );
+            }
+
+            descBoxBg = fheroes2::Crop( display, descBoxRect.x, descBoxRect.y, descBoxRect.width, descBoxRect.height );
+            const fheroes2::Text descTxt( activeDescStr, fheroes2::FontType::smallWhite() );
+            descMaxScroll = std::max<int32_t>( 0, descTxt.height( descBoxRect.width ) - descBoxRect.height );
+            descLastOffset = -1;
+            descTimer.reset();
+            drawScrollingDesc( true );
+
+            // Hero status strip
+            const fheroes2::Rect stBox( 16, 384, 288, 32 );
+            fheroes2::Fill( display, stBox.x, stBox.y, stBox.width, stBox.height, insetBg );
+            fheroes2::DrawRect( display, stBox, insetGold );
+            const fheroes2::Text stTxt( defaultStatusBarText, fheroes2::FontType::smallWhite() );
+            stTxt.draw( stBox.x + 8, stBox.y + 4, stBox.width - 16, display );
+
+            btnExit.draw();
+        };
+
+        renderTopGuild();
+        renderBottomGuild();
+        display.render();
+
+        LocalEvent & le = LocalEvent::Get();
+        while ( le.HandleEvents() ) {
+            if ( Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL ) || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) ) {
+                break;
+            }
+
+            if ( canSwitchCastles ) {
+                if ( le.isKeyPressed( fheroes2::Key::KEY_PAGE_UP ) ) {
+                    return MageGuildDialogResult::PrevMageGuildWindow;
+                }
+                if ( le.isKeyPressed( fheroes2::Key::KEY_PAGE_DOWN ) ) {
+                    return MageGuildDialogResult::NextMageGuildWindow;
+                }
+            }
+
+            bool selectionChanged = false;
+            if ( le.isKeyPressed( fheroes2::Key::KEY_RIGHT ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_RIGHT ) ) {
+                const size_t n = levelSlots[selRow].size();
+                if ( n > 0 ) {
+                    selCol = ( selCol + 1 ) % n;
+                    selectionChanged = true;
+                }
+            }
+            else if ( le.isKeyPressed( fheroes2::Key::KEY_LEFT ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_LEFT ) ) {
+                const size_t n = levelSlots[selRow].size();
+                if ( n > 0 ) {
+                    selCol = ( selCol + n - 1 ) % n;
+                    selectionChanged = true;
+                }
+            }
+            else if ( le.isKeyPressed( fheroes2::Key::KEY_DOWN ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_DOWN ) ) {
+                selRow = ( selRow + 1 ) % 5;
+                if ( selCol >= levelSlots[selRow].size() ) {
+                    selCol = levelSlots[selRow].empty() ? 0 : levelSlots[selRow].size() - 1;
+                }
+                selectionChanged = true;
+            }
+            else if ( le.isKeyPressed( fheroes2::Key::KEY_UP ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_UP ) ) {
+                selRow = ( selRow + 4 ) % 5;
+                if ( selCol >= levelSlots[selRow].size() ) {
+                    selCol = levelSlots[selRow].empty() ? 0 : levelSlots[selRow].size() - 1;
+                }
+                selectionChanged = true;
+            }
+
+            btnExit.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnExit.area() ) );
+            if ( le.MouseClickLeft( btnExit.area() ) ) {
+                break;
+            }
+
+            if ( selectionChanged ) {
+                renderTopGuild();
+                renderBottomGuild();
+                display.render();
+            }
+            else if ( drawScrollingDesc( false ) ) {
+                display.render( descBoxRect );
+            }
+        }
+        return MageGuildDialogResult::DoNothing;
+    }
+#endif
     fheroes2::Display & display = fheroes2::Display::instance();
 
     // setup cursor

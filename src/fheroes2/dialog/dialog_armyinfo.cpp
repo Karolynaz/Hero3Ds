@@ -55,6 +55,7 @@
 #include "spell.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_text.h"
@@ -511,6 +512,243 @@ namespace
         if ( isAnimated )
             monsterAnimation.increment();
     }
+
+#if defined( TARGET_NINTENDO_3DS )
+    int armyInfo3DS( const Troop & troop, const int flags, const bool isReflected )
+    {
+        const fheroes2::Scope3DSNativeDialog nativeScope( false );
+        const bool showButtons = ( flags & Dialog::BUTTONS ) != 0;
+        const CursorRestorer cursorRestorer( showButtons, Cursor::POINTER );
+
+        fheroes2::Display & display = fheroes2::Display::instance();
+        const fheroes2::Rect panelArea( 0, 240, 320, 240 );
+        fheroes2::draw3DSPanel( panelArea );
+
+        std::string title = troop.GetName();
+        if ( troop.GetCount() > 0 ) {
+            title = std::to_string( troop.GetCount() ) + ' ' + troop.GetPluralName( troop.GetCount() );
+        }
+        fheroes2::Text titleTxt( std::move( title ), fheroes2::FontType::normalYellow() );
+        if ( titleTxt.width() > 280 ) {
+            titleTxt.fitToOneRow( 280 );
+        }
+        titleTxt.draw( ( 320 - titleTxt.width() ) / 2, 255, display );
+
+        const uint8_t insetBg = fheroes2::GetColorId( 0x24, 0x14, 0x0A );
+        const uint8_t insetGold = fheroes2::GetColorId( 0xC0, 0x94, 0x34 );
+
+        // Left creature box
+        const fheroes2::Rect monsterBox( 18, 275, 114, 110 );
+        const fheroes2::Rect monsterInner( 20, 277, 110, 106 );
+        fheroes2::Fill( display, monsterBox.x, monsterBox.y, monsterBox.width, monsterBox.height, fheroes2::GetColorId( 0x30, 0x20, 0x12 ) );
+        fheroes2::DrawRect( display, monsterBox, insetGold );
+        const fheroes2::Image monsterBoxBg = fheroes2::Crop( display, monsterInner.x, monsterInner.y, monsterInner.width, monsterInner.height );
+
+        fheroes2::RandomMonsterAnimation monsterAnimation( troop, true );
+        if ( !showButtons ) {
+            monsterAnimation.reset();
+        }
+
+        const auto drawMonsterInBox = [&]() {
+            fheroes2::Copy( monsterBoxBg, 0, 0, display, monsterInner.x, monsterInner.y, monsterInner.width, monsterInner.height );
+            const fheroes2::Sprite & spr = Assets::getImage( monsterAnimation.icnFile(), monsterAnimation.frameId() );
+            if ( !spr.empty() && spr.width() > 0 && spr.height() > 0 ) {
+                fheroes2::Image temp;
+                const fheroes2::Image * toDraw = &spr;
+                if ( spr.width() > monsterInner.width - 4 || spr.height() > monsterInner.height - 4 ) {
+                    const double scale = std::min( static_cast<double>( monsterInner.width - 4 ) / spr.width(),
+                                                   static_cast<double>( monsterInner.height - 4 ) / spr.height() );
+                    const int32_t dw = std::max<int32_t>( 1, static_cast<int32_t>( spr.width() * scale ) );
+                    const int32_t dh = std::max<int32_t>( 1, static_cast<int32_t>( spr.height() * scale ) );
+                    temp.resize( dw, dh );
+                    temp.reset();
+                    fheroes2::Resize( spr, temp );
+                    toDraw = &temp;
+                }
+                const int32_t ox = monsterInner.x + ( monsterInner.width - toDraw->width() ) / 2;
+                const int32_t oy = monsterInner.y + ( monsterInner.height - toDraw->height() ) / 2;
+                if ( troop.isModes( Battle::CAP_MIRRORIMAGE ) ) {
+                    fheroes2::Image mirrored( toDraw->width(), toDraw->height() );
+                    mirrored.reset();
+                    fheroes2::Copy( *toDraw, mirrored );
+                    fheroes2::ApplyPalette( mirrored, PAL::GetPalette( PAL::PaletteType::MIRROR_IMAGE ) );
+                    fheroes2::Blit( mirrored, display, ox, oy, isReflected );
+                }
+                else {
+                    fheroes2::Blit( *toDraw, display, ox, oy, isReflected );
+                }
+            }
+            if ( showButtons ) {
+                monsterAnimation.increment();
+            }
+        };
+
+        drawMonsterInBox();
+
+        // Active battle spell effects or monster count footer under box
+        std::vector<std::pair<fheroes2::Rect, Spell>> spellAreas;
+        if ( troop.isBattle() ) {
+            spellAreas = DrawBattleStats( { 75, 391 }, troop );
+        }
+        else if ( troop.isAllowUpgrade() ) {
+            const fheroes2::Text upgHint( _( "Upgradeable" ), fheroes2::FontType::smallYellow() );
+            upgHint.draw( monsterBox.x + ( monsterBox.width - upgHint.width() ) / 2, 393, display );
+        }
+
+        // Right stats box
+        const fheroes2::Rect statsBox( 138, 275, 164, 138 );
+        fheroes2::Fill( display, statsBox.x, statsBox.y, statsBox.width, statsBox.height, insetBg );
+        fheroes2::DrawRect( display, statsBox, insetGold );
+
+        const Monster monster( troop.GetMonster() );
+        std::string dmgStr = std::to_string( monster.GetDamageMin() );
+        if ( monster.GetDamageMin() != monster.GetDamageMax() ) {
+            dmgStr += '-' + std::to_string( monster.GetDamageMax() );
+        }
+
+        std::vector<std::pair<std::string, std::string>> statRows;
+        statRows.reserve( 9 );
+        statRows.emplace_back( _( "Attack Skill" ), troop.GetAttackString() );
+        statRows.emplace_back( _( "Defense Skill" ), troop.GetDefenseString() );
+        if ( fheroes2::getMonsterData( troop.GetID() ).battleStats.shots > 0 ) {
+            statRows.emplace_back( troop.isBattle() ? _( "Shots Left" ) : _( "Shots" ), troop.GetShotString() );
+        }
+        statRows.emplace_back( _( "Damage" ), std::move( dmgStr ) );
+        statRows.emplace_back( _( "Hit Points" ), std::to_string( monster.GetHitPoints() ) );
+        if ( troop.isBattle() && troop.GetCount() != 0 ) {
+            statRows.emplace_back( _( "HP Left" ), std::to_string( troop.GetHitPointsLeft() ) );
+        }
+        statRows.emplace_back( _( "Speed" ), troop.GetSpeedString() );
+        statRows.emplace_back( _( "Morale" ), Morale::String( troop.GetMorale() ) );
+        statRows.emplace_back( _( "Luck" ), Luck::String( troop.GetLuck() ) );
+
+        int32_t sy = statsBox.y + 6;
+        for ( const auto & [lbl, val] : statRows ) {
+            const fheroes2::Text lblTxt( lbl + ':', fheroes2::FontType::smallWhite() );
+            const fheroes2::Text valTxt( val, fheroes2::FontType::smallYellow() );
+            lblTxt.draw( statsBox.x + 6, sy, display );
+            valTxt.draw( statsBox.x + statsBox.width - 6 - valTxt.width(), sy, display );
+            sy += 14;
+        }
+
+        LocalEvent & le = LocalEvent::Get();
+        if ( !showButtons ) {
+            const fheroes2::Text tip( _( "Release / B to close" ), fheroes2::FontType::smallWhite() );
+            tip.draw( ( 320 - tip.width() ) / 2, 434, display );
+            display.render();
+            while ( le.HandleEvents() ) {
+                if ( !le.isMouseRightButtonPressed() && !le.isMouseLeftButtonPressed() ) {
+                    if ( le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) || le.isKeyPressed( fheroes2::Key::KEY_ENTER )
+                         || Game::HotKeyCloseWindow() ) {
+                        break;
+                    }
+                    // On touch release or initial right-click release, exit immediately if no buttons held
+                    break;
+                }
+            }
+            return Dialog::ZERO;
+        }
+
+        // Action buttons row
+        const bool hasUpgrade = ( flags & Dialog::UPGRADE ) != 0;
+        const bool hasDismiss = ( flags & Dialog::DISMISS ) != 0;
+        const int btnCount = 1 + static_cast<int>( hasUpgrade ) + static_cast<int>( hasDismiss );
+
+        auto rectForSlot = [btnCount]( const int idx ) -> fheroes2::Rect {
+            if ( btnCount == 3 ) {
+                return { 16 + idx * 98, 422, 92, 30 };
+            }
+            if ( btnCount == 2 ) {
+                return { 30 + idx * 142, 422, 118, 30 };
+            }
+            return { 101, 422, 118, 30 };
+        };
+
+        int slot = 0;
+        std::unique_ptr<fheroes2::ButtonSprite> btnUpgrade;
+        std::unique_ptr<fheroes2::ButtonSprite> btnDismiss;
+        if ( hasUpgrade ) {
+            btnUpgrade = std::make_unique<fheroes2::ButtonSprite>( fheroes2::make3DSButton( _( "Upgrade" ), rectForSlot( slot++ ) ) );
+        }
+        if ( hasDismiss ) {
+            btnDismiss = std::make_unique<fheroes2::ButtonSprite>( fheroes2::make3DSButton( _( "Dismiss" ), rectForSlot( slot++ ) ) );
+        }
+        fheroes2::ButtonSprite btnClose = fheroes2::make3DSButton( _( "Close" ), rectForSlot( slot ) );
+
+        std::vector<const fheroes2::ButtonBase *> focusBtns;
+        if ( btnUpgrade ) {
+            btnUpgrade->draw();
+            focusBtns.push_back( btnUpgrade.get() );
+        }
+        if ( btnDismiss ) {
+            btnDismiss->draw();
+            focusBtns.push_back( btnDismiss.get() );
+        }
+        btnClose.draw();
+        focusBtns.push_back( &btnClose );
+
+        fheroes2::set3DSDialogFocus( &btnClose );
+        btnClose.draw();
+        const void * lastFocus = fheroes2::get3DSDialogFocus();
+
+        display.render();
+        le.reset();
+        Game::passAnimationDelay( Game::DelayType::CASTLE_UNIT_DELAY );
+
+        while ( le.HandleEvents( Game::isDelayNeeded( { Game::DelayType::CASTLE_UNIT_DELAY } ) ) ) {
+            fheroes2::sync3DSDialogFocus( lastFocus, focusBtns.data(), focusBtns.size() );
+            if ( btnUpgrade ) {
+                btnUpgrade->drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnUpgrade->area() ) );
+            }
+            if ( btnDismiss ) {
+                btnDismiss->drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnDismiss->area() ) );
+            }
+            btnClose.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnClose.area() ) );
+
+            if ( btnUpgrade && ( le.MouseClickLeft( btnUpgrade->area() ) || Game::HotKeyPressEvent( Game::HotKeyEvent::ARMY_UPGRADE_TROOP ) ) ) {
+                assert( troop.isAllowUpgrade() );
+                if ( Dialog::UPGRADE_DISABLE & flags ) {
+                    const fheroes2::Text description( _( "You can't afford to upgrade your troops!" ), fheroes2::FontType::normalWhite() );
+                    fheroes2::showResourceMessage( fheroes2::Text( "", {} ), description, Dialog::OK, troop.GetTotalUpgradeCost() );
+                }
+                else {
+                    const fheroes2::Text description( _( "Your troops can be upgraded, but it will cost you dearly. Do you wish to upgrade them?" ),
+                                                      fheroes2::FontType::normalWhite() );
+                    if ( fheroes2::showResourceMessage( fheroes2::Text( "", {} ), description, Dialog::YES | Dialog::NO, troop.GetTotalUpgradeCost() )
+                         == Dialog::YES ) {
+                        return Dialog::UPGRADE;
+                    }
+                }
+            }
+
+            if ( btnDismiss && ( le.MouseClickLeft( btnDismiss->area() ) || Game::HotKeyPressEvent( Game::HotKeyEvent::ARMY_DISMISS ) )
+                 && Dialog::YES
+                        == fheroes2::showStandardTextMessage( troop.GetPluralName( troop.GetCount() ), _( "Are you sure you want to dismiss this army?" ),
+                                                              Dialog::YES | Dialog::NO ) ) {
+                return Dialog::DISMISS;
+            }
+
+            if ( le.MouseClickLeft( btnClose.area() ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL )
+                 || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) ) {
+                return Dialog::CANCEL;
+            }
+
+            for ( const auto & spellInfo : spellAreas ) {
+                if ( le.MouseClickLeft( spellInfo.first ) || le.isMouseRightButtonPressedInArea( spellInfo.first ) ) {
+                    fheroes2::SpellDialogElement( spellInfo.second, nullptr ).showPopup( Dialog::OK );
+                    break;
+                }
+            }
+
+            if ( Game::validateAnimationDelay( Game::DelayType::CASTLE_UNIT_DELAY ) ) {
+                drawMonsterInBox();
+                display.render( monsterInner );
+            }
+        }
+
+        return Dialog::CANCEL;
+    }
+#endif
 }
 
 int Dialog::ArmyInfo( const Troop & troop, int flags, bool isReflected, const int32_t windowOffsetY )
@@ -519,6 +757,11 @@ int Dialog::ArmyInfo( const Troop & troop, int flags, bool isReflected, const in
     assert( !troop.isBattle() || !( flags & BUTTONS ) || !( flags & ( UPGRADE | DISMISS ) ) );
     // This function should not be called with the UPGRADE flag for a non-upgradeable unit
     assert( !( flags & BUTTONS ) || !( flags & UPGRADE ) || troop.isAllowUpgrade() );
+
+#if defined( TARGET_NINTENDO_3DS )
+    (void)windowOffsetY;
+    return armyInfo3DS( troop, flags, isReflected );
+#endif
 
     // The active size of the window is 520 by 256 pixels
     fheroes2::Display & display = fheroes2::Display::instance();

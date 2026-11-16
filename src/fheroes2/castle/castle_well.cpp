@@ -52,8 +52,11 @@
 #include "settings.h"
 #include "speed.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
+#include "ui_castle.h"
 #include "ui_dialog.h"
+#include "ui_kingdom.h"
 #include "ui_text.h"
 
 namespace
@@ -203,9 +206,305 @@ bool Castle::_recruitCastleMax( const Troops & currentCastleArmy )
 void Castle::_openWell()
 {
 #if defined( TARGET_NINTENDO_3DS )
-    const fheroes2::Scope3DSCastleView castleSubView3DS( true );
-#endif
+    {
+        const bool isEvil = Settings::Get().isEvilInterfaceEnabled();
+        fheroes2::Display & display = fheroes2::Display::instance();
+        const fheroes2::ImageRestorer screenRestorer( display, 0, 0, display.width(), display.height() );
+        const fheroes2::Scope3DSCastleBuildView wellViewScope;
 
+        const std::array<Monster, maxNumOfDwellings> castleMonster
+            = { Monster( _race, GetActualDwelling( castleDwellings[0] ) ), Monster( _race, GetActualDwelling( castleDwellings[1] ) ),
+                Monster( _race, GetActualDwelling( castleDwellings[2] ) ), Monster( _race, GetActualDwelling( castleDwellings[3] ) ),
+                Monster( _race, GetActualDwelling( castleDwellings[4] ) ), Monster( _race, GetActualDwelling( castleDwellings[5] ) ) };
+
+        std::array<fheroes2::RandomMonsterAnimation, maxNumOfDwellings> monsterAnimInfo
+            = { fheroes2::RandomMonsterAnimation( castleMonster[0], false ), fheroes2::RandomMonsterAnimation( castleMonster[1], false ),
+                fheroes2::RandomMonsterAnimation( castleMonster[2], false ), fheroes2::RandomMonsterAnimation( castleMonster[3], false ),
+                fheroes2::RandomMonsterAnimation( castleMonster[4], false ), fheroes2::RandomMonsterAnimation( castleMonster[5], false ) };
+
+        const fheroes2::Sprite & stoneTile = Assets::getImage( isEvil ? ICN::STONEBAK_EVIL : ICN::STONEBAK, 0 );
+        fheroes2::Image topBg( 400, 240 );
+        topBg.reset();
+        for ( int32_t y = 0; y < 240; y += stoneTile.height() ) {
+            const int32_t h = std::min<int32_t>( stoneTile.height(), 240 - y );
+            for ( int32_t x = 0; x < 400; x += stoneTile.width() ) {
+                const int32_t w = std::min<int32_t>( stoneTile.width(), 400 - x );
+                fheroes2::Copy( stoneTile, 0, 0, topBg, x, y, w, h );
+            }
+        }
+
+        size_t selectedIdx = 0;
+        for ( size_t i = 0; i < maxNumOfDwellings; ++i ) {
+            if ( ( _constructedBuildings & castleDwellings[i] ) && _dwelling[i] > 0 ) {
+                selectedIdx = i;
+                break;
+            }
+        }
+
+        const auto cardRectFor = []( const size_t idx ) -> fheroes2::Rect {
+            const int32_t col = static_cast<int32_t>( idx % 3 );
+            const int32_t row = static_cast<int32_t>( idx / 3 );
+            return { 7 + col * 131, 8 + row * 116, 124, 108 };
+        };
+
+        auto dwellingGrowth = [&]( const size_t idx ) -> uint32_t {
+            uint32_t grown = castleMonster[idx].GetGrown();
+            grown += ( _constructedBuildings & BUILD_WELL ) ? GetGrownWell() : 0;
+            if ( idx == 0 && ( _constructedBuildings & BUILD_WEL2 ) ) {
+                grown += GetGrownWel2();
+            }
+            return grown;
+        };
+
+        auto renderTopWell = [&]( const bool advanceAnim ) {
+            fheroes2::Copy( topBg, 0, 0, display, 0, 0, 400, 240 );
+            const uint8_t cardBg = fheroes2::GetColorId( 0x26, 0x16, 0x0C );
+            const uint8_t unbuiltBg = fheroes2::GetColorId( 0x1C, 0x10, 0x0A );
+            const uint8_t brightGold = fheroes2::GetColorId( 0xFF, 0xEA, 0x40 );
+            const uint8_t warmGold = fheroes2::GetColorId( 0xC0, 0x94, 0x34 );
+            const uint8_t darkFrame = fheroes2::GetColorId( 0x18, 0x0E, 0x06 );
+
+            for ( size_t i = 0; i < maxNumOfDwellings; ++i ) {
+                const fheroes2::Rect card = cardRectFor( i );
+                const bool built = ( _constructedBuildings & castleDwellings[i] ) != 0;
+                const bool sel = ( i == selectedIdx );
+
+                fheroes2::Fill( display, card.x, card.y, card.width, card.height, built ? cardBg : unbuiltBg );
+
+                // Top header strip
+                fheroes2::Fill( display, card.x + 2, card.y + 2, card.width - 4, 15, fheroes2::GetColorId( 0x34, 0x1E, 0x10 ) );
+                fheroes2::Text title( castleMonster[i].GetMultiName(), built ? fheroes2::FontType::smallYellow() : fheroes2::FontType::smallWhite() );
+                if ( title.width() > card.width - 8 ) {
+                    title.fitToOneRow( card.width - 8 );
+                }
+                title.draw( card.x + ( card.width - title.width() ) / 2, card.y + 4, display );
+
+                // Creature animated sprite centered
+                const fheroes2::Sprite & monSpr = Assets::getImage( monsterAnimInfo[i].icnFile(), monsterAnimInfo[i].frameId() );
+                if ( !monSpr.empty() && monSpr.width() > 0 && monSpr.height() > 0 ) {
+                    const int32_t maxW = card.width - 12;
+                    const int32_t maxH = 66;
+                    if ( monSpr.width() <= maxW && monSpr.height() <= maxH ) {
+                        fheroes2::Blit( monSpr, display, card.x + ( card.width - monSpr.width() ) / 2, card.y + 19 + ( maxH - monSpr.height() ) / 2 );
+                    }
+                    else {
+                        const double scale = std::min( static_cast<double>( maxW ) / monSpr.width(), static_cast<double>( maxH ) / monSpr.height() );
+                        const int32_t dw = std::max<int32_t>( 1, static_cast<int32_t>( monSpr.width() * scale ) );
+                        const int32_t dh = std::max<int32_t>( 1, static_cast<int32_t>( monSpr.height() * scale ) );
+                        fheroes2::Image scaled( dw, dh );
+                        scaled.reset();
+                        fheroes2::Resize( monSpr, scaled );
+                        fheroes2::Blit( scaled, display, card.x + ( card.width - dw ) / 2, card.y + 19 + ( maxH - dh ) / 2 );
+                    }
+                }
+                if ( advanceAnim ) {
+                    monsterAnimInfo[i].increment();
+                }
+
+                // Bottom info bar
+                const int32_t barY = card.y + card.height - 20;
+                if ( built ) {
+                    fheroes2::Fill( display, card.x + 2, barY, card.width - 4, 18, fheroes2::GetColorId( 0x1A, 0x2E, 0x14 ) );
+                    const fheroes2::Text availTxt( _( "Avail:" ) + std::string( " " ) + std::to_string( _dwelling[i] ), fheroes2::FontType::smallWhite() );
+                    availTxt.draw( card.x + 6, barY + 4, display );
+                    const fheroes2::Text grownTxt( "+" + std::to_string( dwellingGrowth( i ) ) + "/wk", fheroes2::FontType::smallYellow() );
+                    grownTxt.draw( card.x + card.width - 6 - grownTxt.width(), barY + 4, display );
+                }
+                else {
+                    fheroes2::Fill( display, card.x + 2, barY, card.width - 4, 18, fheroes2::GetColorId( 0x48, 0x16, 0x14 ) );
+                    const fheroes2::Text nbTxt( _( "Not Built" ), fheroes2::FontType::smallWhite() );
+                    nbTxt.draw( card.x + ( card.width - nbTxt.width() ) / 2, barY + 4, display );
+                }
+
+                if ( sel ) {
+                    fheroes2::DrawRect( display, card, brightGold );
+                    fheroes2::DrawRect( display, { card.x + 1, card.y + 1, card.width - 2, card.height - 2 }, warmGold );
+                }
+                else {
+                    fheroes2::DrawRect( display, card, darkFrame );
+                }
+            }
+        };
+
+        fheroes2::ButtonSprite btnRecruit = fheroes2::make3DSButton( _( "Recruit" ), { 24, 386, 126, 32 } );
+        fheroes2::ButtonSprite btnBuyAll = fheroes2::make3DSButton( _( "Buy All" ), { 170, 386, 126, 32 } );
+        fheroes2::Rect footerExitLocalRect;
+        fheroes2::Rect exitDisplayRect;
+        fheroes2::Rect resDisplayRect;
+        bool exitPressed = false;
+
+        auto renderBottomFooter = [&]() {
+            const fheroes2::Image footerImg = fheroes2::render3DSCastleResourceFooter( GetKingdom().GetFunds(), exitPressed, footerExitLocalRect );
+            fheroes2::Copy( footerImg, 0, 0, display, 0, 432, footerImg.width(), footerImg.height() );
+            exitDisplayRect = { footerExitLocalRect.x, 432 + footerExitLocalRect.y, footerExitLocalRect.width, footerExitLocalRect.height };
+            resDisplayRect = { 0, 432, footerExitLocalRect.x, footerImg.height() };
+        };
+
+        auto renderBottomWell = [&]() {
+            fheroes2::draw3DSPanel( { 0, 240, 320, 240 } );
+            fheroes2::Text hdr( GetName() + " - " + _( "Well" ), fheroes2::FontType::normalYellow() );
+            if ( hdr.width() > 280 ) {
+                hdr.fitToOneRow( 280 );
+            }
+            hdr.draw( ( 320 - hdr.width() ) / 2, 250, display );
+
+            const Monster & mon = castleMonster[selectedIdx];
+            const bool built = ( _constructedBuildings & castleDwellings[selectedIdx] ) != 0;
+
+            const fheroes2::Rect box( 16, 269, 288, 108 );
+            fheroes2::Fill( display, box.x, box.y, box.width, box.height, fheroes2::GetColorId( 0x24, 0x14, 0x0A ) );
+            fheroes2::DrawRect( display, box, fheroes2::GetColorId( 0xC0, 0x94, 0x34 ) );
+
+            const fheroes2::Text monTitle( mon.GetMultiName(), fheroes2::FontType::normalYellow() );
+            monTitle.draw( box.x + ( box.width - monTitle.width() ) / 2, box.y + 6, display );
+
+            std::string dmg = std::to_string( mon.GetDamageMin() );
+            if ( mon.GetDamageMin() != mon.GetDamageMax() ) {
+                dmg += '-' + std::to_string( mon.GetDamageMax() );
+            }
+
+            const std::array<std::pair<std::string, std::string>, 6> leftStats = { {
+                { _( "Attack" ), std::to_string( mon.GetAttack() ) },
+                { _( "Defense" ), std::to_string( mon.GetDefense() ) },
+                { _( "Damage" ), dmg },
+                { _( "HP" ), std::to_string( mon.GetHitPoints() ) },
+                { _( "Speed" ), Speed::String( mon.GetSpeed() ) },
+                { _( "Cost" ), std::to_string( mon.GetCost().gold ) + 'g' },
+            } };
+
+            int32_t y = box.y + 26;
+            for ( size_t r = 0; r < 3; ++r ) {
+                const fheroes2::Text l1( leftStats[r * 2].first + ": " + leftStats[r * 2].second, fheroes2::FontType::smallWhite() );
+                const fheroes2::Text l2( leftStats[r * 2 + 1].first + ": " + leftStats[r * 2 + 1].second, fheroes2::FontType::smallWhite() );
+                l1.draw( box.x + 12, y, display );
+                l2.draw( box.x + 156, y, display );
+                y += 16;
+            }
+
+            const std::string statusLine
+                = built ? ( std::string( _( "Available:" ) ) + " " + std::to_string( _dwelling[selectedIdx] ) + "   (" + _( "Growth" ) + ": +"
+                            + std::to_string( dwellingGrowth( selectedIdx ) ) + "/" + _( "week" ) + ")" )
+                        : _( "This creature dwelling has not been built yet." );
+            const fheroes2::Text stTxt( statusLine, built ? fheroes2::FontType::smallYellow() : fheroes2::FontType::smallWhite() );
+            stTxt.draw( box.x + ( box.width - stTxt.width() ) / 2, box.y + 84, display );
+
+            if ( built ) {
+                btnRecruit.enable();
+            }
+            else {
+                btnRecruit.disable();
+            }
+            btnRecruit.draw();
+            btnBuyAll.draw();
+            renderBottomFooter();
+        };
+
+        renderTopWell( false );
+        renderBottomWell();
+        display.render();
+
+        LocalEvent & le = LocalEvent::Get();
+        Game::passAnimationDelay( Game::DelayType::CASTLE_UNIT_DELAY );
+
+        while ( le.HandleEvents( Game::isDelayNeeded( { Game::DelayType::CASTLE_UNIT_DELAY } ) ) ) {
+            if ( Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL ) || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) ) {
+                break;
+            }
+
+            bool selectionChanged = false;
+            bool needFooterRedraw = false;
+
+            if ( le.isKeyPressed( fheroes2::Key::KEY_RIGHT ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_RIGHT ) ) {
+                selectedIdx = ( selectedIdx + 1 ) % maxNumOfDwellings;
+                selectionChanged = true;
+            }
+            else if ( le.isKeyPressed( fheroes2::Key::KEY_LEFT ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_LEFT ) ) {
+                selectedIdx = ( selectedIdx + maxNumOfDwellings - 1 ) % maxNumOfDwellings;
+                selectionChanged = true;
+            }
+            else if ( le.isKeyPressed( fheroes2::Key::KEY_DOWN ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_DOWN )
+                      || le.isKeyPressed( fheroes2::Key::KEY_UP ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_UP ) ) {
+                selectedIdx = ( selectedIdx + 3 ) % maxNumOfDwellings;
+                selectionChanged = true;
+            }
+
+            const bool built = ( _constructedBuildings & castleDwellings[selectedIdx] ) != 0;
+            if ( built ) {
+                btnRecruit.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnRecruit.area() ) );
+            }
+            btnBuyAll.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnBuyAll.area() ) );
+
+            const BuildingType pressedHotkey = getPressedBuildingHotkey();
+            if ( ( built && ( le.MouseClickLeft( btnRecruit.area() ) || le.isKeyPressed( fheroes2::Key::KEY_ENTER )
+                              || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_OKAY ) ) )
+                 || ( pressedHotkey != BUILD_NOTHING && ( _constructedBuildings & pressedHotkey ) ) ) {
+                size_t dwIdx = selectedIdx;
+                if ( pressedHotkey != BUILD_NOTHING ) {
+                    for ( size_t i = 0; i < maxNumOfDwellings; ++i ) {
+                        if ( castleDwellings[i] == pressedHotkey ) {
+                            dwIdx = i;
+                            break;
+                        }
+                    }
+                }
+                RecruitMonster( Dialog::RecruitMonster( castleMonster[dwIdx], _dwelling[dwIdx], true, 2 ) );
+                le.reset();
+                renderTopWell( false );
+                renderBottomWell();
+                display.render();
+                continue;
+            }
+
+            if ( le.MouseClickLeft( btnBuyAll.area() ) || HotKeyPressEvent( Game::HotKeyEvent::TOWN_WELL_BUY_ALL ) ) {
+                _recruitCastleMax( GetArmy() );
+                renderTopWell( false );
+                renderBottomWell();
+                display.render();
+                continue;
+            }
+
+            if ( le.MouseClickLeft( resDisplayRect ) ) {
+                {
+                    const fheroes2::Scope3DSStandardLayout incomeScope;
+                    const CursorRestorer incomeCursor( true, Cursor::POINTER );
+                    fheroes2::showKingdomIncome( GetKingdom(), Dialog::OK );
+                    le.reset();
+                }
+                renderTopWell( false );
+                renderBottomWell();
+                display.render();
+                continue;
+            }
+
+            const bool exitHeld = le.isMouseLeftButtonPressedAndHeldInArea( exitDisplayRect );
+            if ( exitHeld != exitPressed ) {
+                exitPressed = exitHeld;
+                needFooterRedraw = true;
+            }
+            if ( le.MouseClickLeft( exitDisplayRect ) ) {
+                break;
+            }
+
+            if ( selectionChanged ) {
+                renderTopWell( false );
+                renderBottomWell();
+                display.render();
+            }
+            else if ( Game::validateAnimationDelay( Game::DelayType::CASTLE_UNIT_DELAY ) ) {
+                renderTopWell( true );
+                if ( needFooterRedraw ) {
+                    renderBottomFooter();
+                }
+                display.render();
+            }
+            else if ( needFooterRedraw ) {
+                renderBottomFooter();
+                display.render( { 0, 432, 320, 48 } );
+            }
+        }
+        return;
+    }
+#endif
     fheroes2::Display & display = fheroes2::Display::instance();
 
     // setup cursor

@@ -123,6 +123,24 @@ namespace
         std::string title;
     };
 
+    const std::vector<uint8_t> & getDarkenAlphaPalette3DS( const uint8_t alpha )
+    {
+        static std::vector<std::pair<uint8_t, std::vector<uint8_t>>> cache;
+        for ( const auto & entry : cache ) {
+            if ( entry.first == alpha ) {
+                return entry.second;
+            }
+        }
+        fheroes2::Image identity( 256, 1 );
+        identity._disableTransformLayer();
+        for ( int i = 0; i < 256; ++i ) {
+            identity.image()[i] = static_cast<uint8_t>( i );
+        }
+        fheroes2::ApplyAlpha( identity, 0, 0, identity, 0, 0, 256, 1, alpha );
+        cache.emplace_back( alpha, std::vector<uint8_t>( identity.image(), identity.image() + 256 ) );
+        return cache.back().second;
+    }
+
     void tileStoneBackground3DS( fheroes2::Image & dst, const fheroes2::Rect & roi, const bool isEvil )
     {
         const fheroes2::Sprite & tile = Assets::getImage( isEvil ? ICN::STONEBAK_EVIL : ICN::STONEBAK, 0 );
@@ -285,7 +303,7 @@ namespace
         const int32_t overlayY = std::max<int32_t>( 1, artBottomY - overlayH );
 
         // Subtle dark translucent band over building art so costs are always legible.
-        fheroes2::ApplyAlpha( cardImg, 1, overlayY, cardImg, 1, overlayY, kCardArtW3DS, artBottomY - overlayY, 105 );
+        fheroes2::ApplyPalette( cardImg, 1, overlayY, cardImg, 1, overlayY, kCardArtW3DS, artBottomY - overlayY, getDarkenAlphaPalette3DS( 105 ) );
 
         int32_t py = overlayY + 1;
         for ( const auto & row : rows ) {
@@ -341,8 +359,8 @@ namespace
             const fheroes2::Sprite & check = Assets::getImage( ICN::TOWNWIND, 11 );
             if ( !check.empty() ) {
                 const int32_t bx = rightEdge - check.width();
-                fheroes2::ApplyAlpha( dst, std::max<int32_t>( 0, bx - 1 ), std::max<int32_t>( 0, topY - 1 ), dst, std::max<int32_t>( 0, bx - 1 ),
-                                      std::max<int32_t>( 0, topY - 1 ), check.width() + 2, check.height() + 2, 120 );
+                fheroes2::ApplyPalette( dst, std::max<int32_t>( 0, bx - 1 ), std::max<int32_t>( 0, topY - 1 ), dst, std::max<int32_t>( 0, bx - 1 ),
+                                        std::max<int32_t>( 0, topY - 1 ), check.width() + 2, check.height() + 2, getDarkenAlphaPalette3DS( 120 ) );
                 fheroes2::Blit( check, dst, bx, topY );
             }
         }
@@ -353,8 +371,8 @@ namespace
             const fheroes2::Sprite & cross = Assets::getImage( ICN::TOWNWIND, 12 );
             if ( !cross.empty() ) {
                 const int32_t bx = rightEdge - cross.width();
-                fheroes2::ApplyAlpha( dst, std::max<int32_t>( 0, bx - 1 ), std::max<int32_t>( 0, topY - 1 ), dst, std::max<int32_t>( 0, bx - 1 ),
-                                      std::max<int32_t>( 0, topY - 1 ), cross.width() + 2, cross.height() + 2, 120 );
+                fheroes2::ApplyPalette( dst, std::max<int32_t>( 0, bx - 1 ), std::max<int32_t>( 0, topY - 1 ), dst, std::max<int32_t>( 0, bx - 1 ),
+                                        std::max<int32_t>( 0, topY - 1 ), cross.width() + 2, cross.height() + 2, getDarkenAlphaPalette3DS( 120 ) );
                 fheroes2::Blit( cross, dst, bx, topY );
             }
         }
@@ -530,14 +548,14 @@ namespace
         if ( fadeTop ) {
             for ( size_t i = 0; i < alphas.size(); ++i ) {
                 const int32_t y = static_cast<int32_t>( i ) * stripH;
-                fheroes2::ApplyAlpha( topBuf, 0, y, topBuf, 0, y, kTopWidth3DS, stripH, alphas[i] );
+                fheroes2::ApplyPalette( topBuf, 0, y, topBuf, 0, y, kTopWidth3DS, stripH, getDarkenAlphaPalette3DS( alphas[i] ) );
             }
         }
 
         if ( fadeBottom ) {
             for ( size_t i = 0; i < alphas.size(); ++i ) {
                 const int32_t y = kTopHeight3DS - stripH * static_cast<int32_t>( i + 1 );
-                fheroes2::ApplyAlpha( topBuf, 0, y, topBuf, 0, y, kTopWidth3DS, stripH, alphas[i] );
+                fheroes2::ApplyPalette( topBuf, 0, y, topBuf, 0, y, kTopWidth3DS, stripH, getDarkenAlphaPalette3DS( alphas[i] ) );
             }
         }
     }
