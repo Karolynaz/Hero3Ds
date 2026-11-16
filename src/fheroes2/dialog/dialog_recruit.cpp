@@ -22,6 +22,7 @@
  ***************************************************************************/
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -49,6 +50,7 @@
 #include "settings.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_constants.h"
 #include "ui_dialog.h"
@@ -249,10 +251,380 @@ namespace
 
         return max;
     }
+
+#if defined( TARGET_NINTENDO_3DS )
+    void drawScaledResourceIcon3DS( fheroes2::Image & dst, const int icnIndex, const int32_t x, const int32_t y, const int32_t maxW, const int32_t maxH )
+    {
+        const fheroes2::Sprite & src = Assets::getImage( ICN::RESOURCE, Resource::getIconIcnIndex( icnIndex ) );
+        if ( src.empty() || src.width() <= 0 || src.height() <= 0 ) {
+            return;
+        }
+        if ( src.width() <= maxW && src.height() <= maxH ) {
+            fheroes2::Blit( src, dst, x + ( maxW - src.width() ) / 2, y + ( maxH - src.height() ) / 2 );
+            return;
+        }
+        const double scale = std::min( static_cast<double>( maxW ) / src.width(), static_cast<double>( maxH ) / src.height() );
+        const int32_t dw = std::max<int32_t>( 1, static_cast<int32_t>( src.width() * scale ) );
+        const int32_t dh = std::max<int32_t>( 1, static_cast<int32_t>( src.height() * scale ) );
+        fheroes2::Image scaled( dw, dh );
+        scaled.reset();
+        fheroes2::Resize( src, scaled );
+        fheroes2::Blit( scaled, dst, x + ( maxW - dw ) / 2, y + ( maxH - dh ) / 2 );
+    }
+
+    Troop recruitMonster3DS( const Monster & monster0, const uint32_t available, const bool allowDowngradedMonster )
+    {
+        const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
+        const fheroes2::Scope3DSNativeDialog nativeScope( false );
+        const CursorRestorer cursorRestorer( true, Cursor::POINTER );
+
+        fheroes2::Display & display = fheroes2::Display::instance();
+        LocalEvent & le = LocalEvent::Get();
+
+        Monster monster = monster0;
+        Funds paymentMonster = monster.GetCost();
+        const Kingdom & kingdom = world.GetKingdom( Settings::Get().CurrentColor() );
+        const Funds & funds = kingdom.GetFunds();
+
+        uint32_t max = CalculateMax( monster, kingdom, available );
+        uint32_t result = max;
+        Funds paymentCosts( paymentMonster * result );
+
+        const fheroes2::Rect panelArea( 0, 240, 320, 240 );
+        fheroes2::draw3DSPanel( panelArea );
+        const fheroes2::Image panelBase = fheroes2::Crop( display, panelArea.x, panelArea.y, panelArea.width, panelArea.height );
+
+        const bool showSwitch = allowDowngradedMonster && ( monster0.GetDowngrade() != monster0 );
+        std::vector<Monster> upgrades = { monster0 };
+        while ( upgrades.back().GetDowngrade() != upgrades.back() ) {
+            upgrades.emplace_back( upgrades.back().GetDowngrade() );
+        }
+
+        const fheroes2::Rect monsterArea( 38, 278, 66, 48 );
+        const fheroes2::Rect countInputArea( 52, 348, 54, 20 );
+        const fheroes2::Rect unitCostBox( 136, 278, 164, 62 );
+        const fheroes2::Rect totalCostBox( 20, 379, 280, 37 );
+
+        fheroes2::ButtonSprite monsterSwitchLeft;
+        fheroes2::ButtonSprite monsterSwitchRight;
+        if ( showSwitch ) {
+            const fheroes2::Sprite & leftSpr = Assets::getImage( ICN::MONSTER_SWITCH_LEFT_ARROW, 0 );
+            const fheroes2::Sprite & rightSpr = Assets::getImage( ICN::MONSTER_SWITCH_RIGHT_ARROW, 0 );
+            monsterSwitchLeft.setSprite( leftSpr, Assets::getImage( ICN::MONSTER_SWITCH_LEFT_ARROW, 1 ) );
+            monsterSwitchRight.setSprite( rightSpr, Assets::getImage( ICN::MONSTER_SWITCH_RIGHT_ARROW, 1 ) );
+            monsterSwitchLeft.setPosition( 18, 293 );
+            monsterSwitchRight.setPosition( 108, 293 );
+        }
+        else {
+            monsterSwitchLeft.hide();
+            monsterSwitchRight.hide();
+            monsterSwitchLeft.disable();
+            monsterSwitchRight.disable();
+        }
+
+        fheroes2::Button buttonUp( 150, 343, ICN::RECRUIT, 0, 1 );
+        fheroes2::Button buttonDn( 150, 358, ICN::RECRUIT, 2, 3 );
+        fheroes2::TimedEventValidator timedUp( [&buttonUp]() { return buttonUp.isPressed(); } );
+        fheroes2::TimedEventValidator timedDn( [&buttonDn]() { return buttonDn.isPressed(); } );
+        buttonUp.subscribe( &timedUp );
+        buttonDn.subscribe( &timedDn );
+
+        fheroes2::Button buttonMax( 186, 347, isEvilInterface ? ICN::BUTTON_SMALL_MAX_EVIL : ICN::BUTTON_SMALL_MAX_GOOD, 0, 1 );
+        fheroes2::Button buttonMin( 186, 347, isEvilInterface ? ICN::BUTTON_SMALL_MIN_EVIL : ICN::BUTTON_SMALL_MIN_GOOD, 0, 1 );
+        fheroes2::ButtonSprite buttonOk = fheroes2::make3DSButton( _( "Okay" ), { 28, 423, 118, 30 } );
+        fheroes2::ButtonSprite buttonCancel = fheroes2::make3DSButton( _( "Cancel" ), { 174, 423, 118, 30 } );
+
+        std::string maxmin;
+        std::string typedValueBuf;
+
+        const auto refreshCurrent = [&]() {
+            paymentCosts = paymentMonster * result;
+            if ( max == 0 ) {
+                buttonMax.disable();
+                buttonMin.disable();
+                buttonOk.disable();
+                maxmin.clear();
+            }
+            else {
+                buttonOk.enable();
+                if ( result >= max ) {
+                    maxmin = SwitchMaxMinButtons( buttonMax, buttonMin, true );
+                }
+                else if ( result <= 1 ) {
+                    maxmin = SwitchMaxMinButtons( buttonMax, buttonMin, false );
+                }
+                else {
+                    buttonMax.enable();
+                    buttonMin.disable();
+                    maxmin.clear();
+                }
+            }
+            if ( !buttonMax.isEnabled() ) {
+                fheroes2::unregister3DSDialogButton( &buttonMax );
+            }
+            if ( !buttonMin.isEnabled() ) {
+                fheroes2::unregister3DSDialogButton( &buttonMin );
+            }
+        };
+
+        const auto redrawDynamic = [&]() {
+            fheroes2::Copy( panelBase, 0, 0, display, panelArea.x, panelArea.y, panelArea.width, panelArea.height );
+
+            // Header title
+            std::string titleStr( _( "Recruit %{name}" ) );
+            StringReplace( titleStr, "%{name}", monster.GetMultiName() );
+            fheroes2::Text titleTxt( std::move( titleStr ), fheroes2::FontType::normalYellow() );
+            if ( titleTxt.width() > 280 ) {
+                titleTxt.fitToOneRow( 280 );
+            }
+            titleTxt.draw( ( 320 - titleTxt.width() ) / 2, 256, display );
+
+            // Monster sprite + Available count
+            const Bin_Info::MonsterAnimInfo & animInfo = Bin_Info::GetMonsterInfo( monster.GetID() );
+            if ( !animInfo.animationFrames[Bin_Info::MonsterAnimInfo::STATIC].empty() ) {
+                const fheroes2::Sprite & smon
+                    = Assets::getImage( monster.GetMonsterSprite(), animInfo.animationFrames[Bin_Info::MonsterAnimInfo::STATIC][0] );
+                if ( !smon.empty() && smon.width() > 0 && smon.height() > 0 ) {
+                    if ( smon.width() <= monsterArea.width && smon.height() <= monsterArea.height ) {
+                        fheroes2::Blit( smon, display, monsterArea.x + ( monsterArea.width - smon.width() ) / 2,
+                                        monsterArea.y + ( monsterArea.height - smon.height() ) / 2 );
+                    }
+                    else {
+                        const double scale = std::min( static_cast<double>( monsterArea.width ) / smon.width(),
+                                                       static_cast<double>( monsterArea.height ) / smon.height() );
+                        const int32_t dw = std::max<int32_t>( 1, static_cast<int32_t>( smon.width() * scale ) );
+                        const int32_t dh = std::max<int32_t>( 1, static_cast<int32_t>( smon.height() * scale ) );
+                        fheroes2::Image scaled( dw, dh );
+                        scaled.reset();
+                        fheroes2::Resize( smon, scaled );
+                        fheroes2::Blit( scaled, display, monsterArea.x + ( monsterArea.width - dw ) / 2,
+                                        monsterArea.y + ( monsterArea.height - dh ) / 2 );
+                    }
+                }
+            }
+
+            std::string availStr( _( "Available: %{count}" ) );
+            StringReplace( availStr, "%{count}", available );
+            const fheroes2::Text availTxt( std::move( availStr ), fheroes2::FontType::smallWhite() );
+            availTxt.draw( 18 + ( 108 - availTxt.width() ) / 2, 329, display );
+
+            // Cost per troop box
+            const uint8_t insetBg = fheroes2::GetColorId( 0x24, 0x14, 0x0A );
+            const uint8_t insetGold = fheroes2::GetColorId( 0xC0, 0x94, 0x34 );
+            fheroes2::Fill( display, unitCostBox.x, unitCostBox.y, unitCostBox.width, unitCostBox.height, insetBg );
+            fheroes2::DrawRect( display, unitCostBox, insetGold );
+
+            const fheroes2::Text cptTxt( _( "Cost per troop:" ), fheroes2::FontType::smallYellow() );
+            cptTxt.draw( unitCostBox.x + ( unitCostBox.width - cptTxt.width() ) / 2, unitCostBox.y + 4, display );
+
+            const int rsext = paymentMonster.GetValidItems() & ~Resource::GOLD;
+            if ( rsext ) {
+                drawScaledResourceIcon3DS( display, Resource::GOLD, unitCostBox.x + 28, unitCostBox.y + 19, 26, 20 );
+                const fheroes2::Text gTxt( std::to_string( paymentMonster.gold ), fheroes2::FontType::smallWhite() );
+                gTxt.draw( unitCostBox.x + 41 - gTxt.width() / 2, unitCostBox.y + 43, display );
+
+                drawScaledResourceIcon3DS( display, rsext, unitCostBox.x + 110, unitCostBox.y + 19, 24, 20 );
+                const fheroes2::Text eTxt( std::to_string( paymentMonster.Get( rsext ) ), fheroes2::FontType::smallWhite() );
+                eTxt.draw( unitCostBox.x + 122 - eTxt.width() / 2, unitCostBox.y + 43, display );
+            }
+            else {
+                drawScaledResourceIcon3DS( display, Resource::GOLD, unitCostBox.x + 69, unitCostBox.y + 19, 26, 20 );
+                const fheroes2::Text gTxt( std::to_string( paymentMonster.gold ), fheroes2::FontType::smallWhite() );
+                gTxt.draw( unitCostBox.x + 82 - gTxt.width() / 2, unitCostBox.y + 43, display );
+            }
+
+            // Quantity row
+            const fheroes2::Text buyLbl( _( "Buy:" ), fheroes2::FontType::smallWhite() );
+            buyLbl.draw( 20, 353, display );
+            fheroes2::Fill( display, countInputArea.x, countInputArea.y, countInputArea.width, countInputArea.height, insetBg );
+            fheroes2::DrawRect( display, countInputArea, insetGold );
+
+            const fheroes2::Text numTxt( std::to_string( result ), fheroes2::FontType::normalWhite() );
+            numTxt.draw( countInputArea.x + ( countInputArea.width - numTxt.width() ) / 2, countInputArea.y + 3, display );
+
+            if ( !maxmin.empty() ) {
+                const fheroes2::Text mmTxt( maxmin, fheroes2::FontType::smallYellow() );
+                mmTxt.draw( 112, 353, display );
+            }
+
+            // Total cost bar
+            fheroes2::Fill( display, totalCostBox.x, totalCostBox.y, totalCostBox.width, totalCostBox.height, insetBg );
+            fheroes2::DrawRect( display, totalCostBox, insetGold );
+            const fheroes2::Text totLbl( _( "Total:" ), fheroes2::FontType::smallYellow() );
+            totLbl.draw( totalCostBox.x + 8, totalCostBox.y + 14, display );
+
+            const std::string totalGoldStr = std::to_string( paymentCosts.gold ) + " (" + std::to_string( funds.gold - paymentCosts.gold ) + ')';
+            const fheroes2::Text totGoldTxt( totalGoldStr, fheroes2::FontType::smallWhite() );
+            if ( rsext ) {
+                drawScaledResourceIcon3DS( display, Resource::GOLD, totalCostBox.x + 54, totalCostBox.y + 8, 22, 18 );
+                totGoldTxt.draw( totalCostBox.x + 79, totalCostBox.y + 14, display );
+
+                const std::string totalExtStr
+                    = std::to_string( paymentCosts.Get( rsext ) ) + " (" + std::to_string( funds.Get( rsext ) - paymentCosts.Get( rsext ) ) + ')';
+                const fheroes2::Text totExtTxt( totalExtStr, fheroes2::FontType::smallWhite() );
+                drawScaledResourceIcon3DS( display, rsext, totalCostBox.x + 174, totalCostBox.y + 8, 20, 18 );
+                totExtTxt.draw( totalCostBox.x + 197, totalCostBox.y + 14, display );
+            }
+            else {
+                drawScaledResourceIcon3DS( display, Resource::GOLD, totalCostBox.x + 86, totalCostBox.y + 8, 24, 18 );
+                totGoldTxt.draw( totalCostBox.x + 114, totalCostBox.y + 14, display );
+            }
+
+            if ( showSwitch ) {
+                monsterSwitchLeft.draw();
+                monsterSwitchRight.draw();
+            }
+            buttonUp.draw();
+            buttonDn.draw();
+            if ( buttonMax.isEnabled() || max == 0 ) {
+                buttonMax.draw();
+            }
+            else if ( buttonMin.isEnabled() ) {
+                buttonMin.draw();
+            }
+            buttonOk.draw();
+            buttonCancel.draw();
+        };
+
+        refreshCurrent();
+        redrawDynamic();
+
+        fheroes2::set3DSDialogFocus( result > 0 ? &buttonOk : &buttonCancel );
+        buttonOk.draw();
+        buttonCancel.draw();
+        const void * lastFocus = fheroes2::get3DSDialogFocus();
+
+        display.render();
+        le.reset();
+
+        while ( le.HandleEvents() ) {
+            std::vector<const fheroes2::ButtonBase *> focusBtns = { &buttonOk, &buttonCancel, &buttonUp, &buttonDn };
+            focusBtns.push_back( buttonMax.isEnabled() ? &buttonMax : &buttonMin );
+            if ( showSwitch ) {
+                focusBtns.push_back( &monsterSwitchLeft );
+                focusBtns.push_back( &monsterSwitchRight );
+            }
+            fheroes2::sync3DSDialogFocus( lastFocus, focusBtns.data(), focusBtns.size() );
+
+            if ( buttonOk.isEnabled() ) {
+                buttonOk.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonOk.area() ) );
+            }
+            buttonCancel.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonCancel.area() ) );
+
+            if ( buttonMax.isEnabled() ) {
+                buttonMax.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonMax.area() ) );
+            }
+            else if ( buttonMin.isEnabled() ) {
+                buttonMin.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonMin.area() ) );
+            }
+            buttonUp.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonUp.area() ) );
+            buttonDn.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonDn.area() ) );
+
+            bool needRedraw = false;
+            bool needMonsterRefresh = false;
+
+            if ( showSwitch ) {
+                monsterSwitchLeft.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( monsterSwitchLeft.area() ) );
+                monsterSwitchRight.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( monsterSwitchRight.area() ) );
+                if ( le.MouseClickLeft( monsterSwitchLeft.area() ) ) {
+                    for ( size_t i = 0; i < upgrades.size(); ++i ) {
+                        if ( upgrades[i] == monster ) {
+                            monster = ( i + 1 < upgrades.size() ) ? upgrades[i + 1] : upgrades[0];
+                            break;
+                        }
+                    }
+                    needMonsterRefresh = true;
+                }
+                else if ( le.MouseClickLeft( monsterSwitchRight.area() ) ) {
+                    for ( size_t i = 0; i < upgrades.size(); ++i ) {
+                        if ( upgrades[i] == monster ) {
+                            monster = ( i > 0 ) ? upgrades[i - 1] : upgrades.back();
+                            break;
+                        }
+                    }
+                    needMonsterRefresh = true;
+                }
+            }
+
+            if ( needMonsterRefresh ) {
+                max = CalculateMax( monster, kingdom, available );
+                paymentMonster = monster.GetCost();
+                result = max;
+                typedValueBuf.clear();
+                refreshCurrent();
+                redrawDynamic();
+                display.render();
+                continue;
+            }
+
+            if ( le.MouseClickLeft( monsterArea ) ) {
+                Dialog::ArmyInfo( Troop( monster, available ), Dialog::BUTTONS );
+                redrawDynamic();
+                display.render();
+                continue;
+            }
+
+            if ( le.MouseClickLeft( countInputArea ) ) {
+                int32_t temp = static_cast<int32_t>( result );
+                fheroes2::openVirtualNumpad( temp, 0, static_cast<int32_t>( max ) );
+                result = static_cast<uint32_t>( std::clamp<int32_t>( temp, 0, static_cast<int32_t>( max ) ) );
+                typedValueBuf.clear();
+                refreshCurrent();
+                redrawDynamic();
+                display.render();
+                continue;
+            }
+
+            if ( ( le.MouseClickLeft( buttonUp.area() ) || timedUp.isDelayPassed() ) && result < max ) {
+                ++result;
+                typedValueBuf.clear();
+                refreshCurrent();
+                needRedraw = true;
+            }
+            else if ( ( le.MouseClickLeft( buttonDn.area() ) || timedDn.isDelayPassed() ) && result > 0 ) {
+                --result;
+                typedValueBuf.clear();
+                refreshCurrent();
+                needRedraw = true;
+            }
+            else if ( buttonMax.isEnabled() && le.MouseClickLeft( buttonMax.area() ) && result != max ) {
+                result = max;
+                typedValueBuf.clear();
+                refreshCurrent();
+                needRedraw = true;
+            }
+            else if ( buttonMin.isEnabled() && le.MouseClickLeft( buttonMin.area() ) && result != 1 ) {
+                result = 1;
+                typedValueBuf.clear();
+                refreshCurrent();
+                needRedraw = true;
+            }
+            else if ( buttonOk.isEnabled() && ( le.MouseClickLeft( buttonOk.area() ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_OKAY ) ) ) {
+                break;
+            }
+            else if ( le.MouseClickLeft( buttonCancel.area() ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL )
+                      || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) ) {
+                result = 0;
+                break;
+            }
+
+            if ( needRedraw ) {
+                redrawDynamic();
+                display.render();
+            }
+        }
+
+        return { monster, result };
+    }
+#endif
 }
 
 Troop Dialog::RecruitMonster( const Monster & monster0, const uint32_t available, const bool allowDowngradedMonster, const int32_t windowOffsetY )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    (void)windowOffsetY;
+    return recruitMonster3DS( monster0, available, allowDowngradedMonster );
+#endif
     const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
 
 #if defined( TARGET_NINTENDO_3DS )

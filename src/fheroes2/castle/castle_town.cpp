@@ -671,9 +671,10 @@ namespace
             fheroes2::ButtonSprite btnBuild = fheroes2::make3DSButton( _( "Build" ), { 30, 422, 118, 30 } );
             fheroes2::ButtonSprite btnCancel = fheroes2::make3DSButton( _( "Cancel" ), { 172, 422, 118, 30 } );
             const std::array<const fheroes2::ButtonBase *, 2> focusBtns = { &btnBuild, &btnCancel };
-            fheroes2::set3DSDialogFocus( &btnBuild );
             btnBuild.draw();
             btnCancel.draw();
+            fheroes2::set3DSDialogFocus( &btnBuild );
+            btnBuild.draw();
             const void * lastFocus = fheroes2::get3DSDialogFocus();
 
             display.render();
@@ -685,7 +686,8 @@ namespace
                 btnBuild.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnBuild.area() ) );
                 btnCancel.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnCancel.area() ) );
 
-                if ( Game::HotKeyCloseWindow() || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) || le.MouseClickLeft( btnCancel.area() ) ) {
+                if ( Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL ) || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE )
+                     || le.MouseClickLeft( btnCancel.area() ) ) {
                     le.reset();
                     return false;
                 }
@@ -693,7 +695,7 @@ namespace
                     le.reset();
                     return true;
                 }
-                if ( le.isKeyPressed( fheroes2::Key::KEY_ENTER ) ) {
+                if ( le.isKeyPressed( fheroes2::Key::KEY_ENTER ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_OKAY ) ) {
                     const void * focused = fheroes2::get3DSDialogFocus();
                     le.reset();
                     return focused != &btnCancel;
@@ -704,6 +706,7 @@ namespace
 
         fheroes2::ButtonSprite btnClose = fheroes2::make3DSButton( _( "Close" ), { 101, 422, 118, 30 } );
         const std::array<const fheroes2::ButtonBase *, 1> focusBtns = { &btnClose };
+        btnClose.draw();
         fheroes2::set3DSDialogFocus( &btnClose );
         btnClose.draw();
         const void * lastFocus = fheroes2::get3DSDialogFocus();
@@ -716,8 +719,8 @@ namespace
             fheroes2::sync3DSDialogFocus( lastFocus, focusBtns.data(), focusBtns.size() );
             btnClose.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnClose.area() ) );
 
-            if ( Game::HotKeyCloseWindow() || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) || le.isKeyPressed( fheroes2::Key::KEY_ENTER )
-                 || le.MouseClickLeft( btnClose.area() ) ) {
+            if ( Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_OKAY )
+                 || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) || le.isKeyPressed( fheroes2::Key::KEY_ENTER ) || le.MouseClickLeft( btnClose.area() ) ) {
                 le.reset();
                 return false;
             }
@@ -1211,7 +1214,7 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
             bool selectionChanged = false;
             bool needFooterRedraw = false;
 
-            if ( Game::HotKeyCloseWindow() || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) ) {
+            if ( Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL ) || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) ) {
                 return ConstructionDialogResult::DoNothing;
             }
 
