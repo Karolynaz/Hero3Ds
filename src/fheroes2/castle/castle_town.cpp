@@ -21,17 +21,22 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include <algorithm>
+#include <array>
 #include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "army.h"
 #include "artifact.h"
 #include "buildinginfo.h"
 #include "captain.h"
 #include "castle.h" // IWYU pragma: associated
+#include "castle_building_info.h"
 #include "cursor.h"
 #include "dialog.h"
 #include "game_assets.h"
@@ -45,6 +50,7 @@
 #include "localevent.h"
 #include "maps_fileinfo.h"
 #include "math_base.h"
+#include "pal.h"
 #include "payment.h"
 #include "race.h"
 #include "resource.h"
@@ -54,6 +60,7 @@
 #include "statusbar.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_castle.h"
 #include "ui_constants.h"
@@ -63,6 +70,430 @@
 #include "ui_text.h"
 #include "ui_tool.h"
 #include "world.h"
+
+#if defined( TARGET_NINTENDO_3DS )
+namespace
+{
+    constexpr int32_t kTopWidth3DS = 400;
+    constexpr int32_t kTopHeight3DS = 240;
+    constexpr int32_t kBottomX3DS = 0;
+    constexpr int32_t kBottomY3DS = 240;
+    constexpr int32_t kBottomWidth3DS = 320;
+    constexpr int32_t kBottomHeight3DS = 240;
+
+    constexpr int32_t kCardWidth3DS = 92;
+    constexpr int32_t kCardHeight3DS = 56;
+    constexpr int32_t kCardArtW3DS = 90;
+    constexpr int32_t kCardArtH3DS = 43;
+    constexpr int32_t kCardPlateH3DS = 11;
+    constexpr int32_t kGridCols3DS = 4;
+    constexpr int32_t kGridMarginX3DS = 7;
+    constexpr int32_t kGridGapX3DS = 6;
+    constexpr int32_t kGridGapY3DS = 5;
+    constexpr int32_t kHeaderHeight3DS = 14;
+    constexpr int32_t kFadeBandHeight3DS = 22;
+
+    struct BuildCard3DS final
+    {
+        BuildingType baseType{ BUILD_NOTHING };
+        BuildingInfo info;
+        bool isBuilt{ false };
+        bool isUpgradeable{ false };
+        fheroes2::Rect rect{};
+        int32_t gridRow{ 0 };
+        int32_t gridCol{ 0 };
+
+        BuildCard3DS( const Castle & castle, const BuildingType type )
+            : baseType( type )
+            , info( castle, type )
+        {
+            const bool isBaseBuilt = ( ( type & BUILD_MAGEGUILD ) != 0 ) ? ( castle.GetLevelMageGuild() > 0 ) : castle.isBuild( type );
+            isBuilt = ( info.getStatus() == BuildingStatus::ALREADY_BUILT );
+            isUpgradeable = !isBuilt && isBaseBuilt;
+        }
+    };
+
+    struct HeaderEntry3DS final
+    {
+        int32_t y{ 0 };
+        std::string title;
+    };
+
+    void tileStoneBackground3DS( fheroes2::Image & dst, const fheroes2::Rect & roi, const bool isEvil )
+    {
+        const fheroes2::Sprite & tile = Assets::getImage( isEvil ? ICN::STONEBAK_EVIL : ICN::STONEBAK, 0 );
+        if ( tile.empty() ) {
+            fheroes2::Fill( dst, roi.x, roi.y, roi.width, roi.height, fheroes2::GetColorId( 0x38, 0x24, 0x14 ) );
+            return;
+        }
+
+        const int32_t maxX = roi.x + roi.width;
+        const int32_t maxY = roi.y + roi.height;
+        for ( int32_t y = roi.y; y < maxY; y += tile.height() ) {
+            const int32_t h = std::min<int32_t>( tile.height(), maxY - y );
+            for ( int32_t x = roi.x; x < maxX; x += tile.width() ) {
+                const int32_t w = std::min<int32_t>( tile.width(), maxX - x );
+                fheroes2::Copy( tile, 0, 0, dst, x, y, w, h );
+            }
+        }
+    }
+
+    std::array<fheroes2::Image, 7> createMiniResourceIcons3DS()
+    {
+        std::array<fheroes2::Image, 7> icons;
+        for ( int i = 0; i < 7; ++i ) {
+            const fheroes2::Sprite & src = Assets::getImage( ICN::RESOURCE, i );
+            icons[i] = fheroes2::Image( 9, 9 );
+            icons[i].reset();
+            if ( !src.empty() ) {
+                fheroes2::Resize( src, icons[i] );
+            }
+        }
+        return icons;
+    }
+
+    void drawGroupHeader3DS( fheroes2::Image & dst, const int32_t y, const std::string & title )
+    {
+        const uint8_t darkShadow = fheroes2::GetColorId( 0x16, 0x0C, 0x06 );
+        const uint8_t bannerFill = fheroes2::GetColorId( 0x30, 0x1C, 0x0E );
+        const uint8_t goldBright = fheroes2::GetColorId( 0xE8, 0xC8, 0x48 );
+        const uint8_t goldMid = fheroes2::GetColorId( 0x9C, 0x74, 0x24 );
+
+        const fheroes2::Text label( title, fheroes2::FontType::smallYellow() );
+        const int32_t titleW = label.width();
+        const int32_t centerX = dst.width() / 2;
+        const int32_t titleX = centerX - titleW / 2;
+        const int32_t padX = 10;
+        const int32_t boxX = std::max<int32_t>( 40, titleX - padX );
+        const int32_t boxW = std::min<int32_t>( dst.width() - 80, titleW + padX * 2 );
+
+        // Ornamental flanking wings
+        const int32_t midY = y + kHeaderHeight3DS / 2;
+        const int32_t leftEnd = boxX - 4;
+        const int32_t rightStart = boxX + boxW + 4;
+        if ( leftEnd > 10 ) {
+            fheroes2::DrawLine( dst, { 10, midY }, { leftEnd, midY }, goldMid );
+            fheroes2::DrawLine( dst, { 10, midY + 1 }, { leftEnd, midY + 1 }, darkShadow );
+            fheroes2::Fill( dst, leftEnd - 2, midY - 1, 3, 3, goldBright );
+            fheroes2::Fill( dst, 10, midY - 1, 3, 3, goldBright );
+        }
+        if ( rightStart < dst.width() - 10 ) {
+            fheroes2::DrawLine( dst, { rightStart, midY }, { dst.width() - 11, midY }, goldMid );
+            fheroes2::DrawLine( dst, { rightStart, midY + 1 }, { dst.width() - 11, midY + 1 }, darkShadow );
+            fheroes2::Fill( dst, rightStart, midY - 1, 3, 3, goldBright );
+            fheroes2::Fill( dst, dst.width() - 13, midY - 1, 3, 3, goldBright );
+        }
+
+        // Framed plaque behind group title
+        fheroes2::Fill( dst, boxX, y, boxW, kHeaderHeight3DS, bannerFill );
+        fheroes2::DrawRect( dst, { boxX, y, boxW, kHeaderHeight3DS }, goldMid );
+        fheroes2::DrawRect( dst, { boxX + 1, y + 1, boxW - 2, kHeaderHeight3DS - 2 }, darkShadow );
+        fheroes2::Fill( dst, boxX, y, 2, 2, goldBright );
+        fheroes2::Fill( dst, boxX + boxW - 2, y, 2, 2, goldBright );
+        fheroes2::Fill( dst, boxX, y + kHeaderHeight3DS - 2, 2, 2, goldBright );
+        fheroes2::Fill( dst, boxX + boxW - 2, y + kHeaderHeight3DS - 2, 2, 2, goldBright );
+
+        label.draw( titleX, y + ( kHeaderHeight3DS - label.height() ) / 2, dst );
+    }
+
+    void drawUpgradeBadge3DS( fheroes2::Image & dst, const int32_t x, const int32_t y, const BuildingStatus status )
+    {
+        const int32_t size = 12;
+        const uint8_t bg = fheroes2::GetColorId( 0x18, 0x10, 0x08 );
+        const uint8_t border = fheroes2::GetColorId( 0xE0, 0xC0, 0x48 );
+
+        uint8_t arrow = fheroes2::GetColorId( 0xE4, 0x4C, 0x40 );
+        if ( status == BuildingStatus::ALLOW_BUILD ) {
+            arrow = fheroes2::GetColorId( 0x54, 0xDC, 0x54 );
+        }
+        else if ( status == BuildingStatus::LACK_RESOURCES ) {
+            arrow = fheroes2::GetColorId( 0xF4, 0xD0, 0x38 );
+        }
+
+        fheroes2::Fill( dst, x, y, size, size, bg );
+        fheroes2::DrawRect( dst, { x, y, size, size }, border );
+
+        // Double upward chevron inside the badge
+        for ( int row = 0; row < 3; ++row ) {
+            const int32_t w = 1 + row * 2;
+            const int32_t cx = x + size / 2 - row;
+            fheroes2::Fill( dst, cx, y + 2 + row, w, 1, arrow );
+            fheroes2::Fill( dst, cx, y + 6 + row, w, 1, arrow );
+        }
+    }
+
+    void drawCardCostOverlay3DS( fheroes2::Image & cardImg, const Funds & cost, const std::array<fheroes2::Image, 7> & miniIcons, const int32_t artBottomY )
+    {
+        struct CostPill final
+        {
+            int iconIdx{ 0 };
+            std::string amount;
+            int32_t textW{ 0 };
+            int32_t totalW{ 0 };
+        };
+
+        const std::array<std::pair<int, int32_t>, 7> entries = { {
+            { 0, cost.wood },
+            { 2, cost.ore },
+            { 1, cost.mercury },
+            { 3, cost.sulfur },
+            { 4, cost.crystal },
+            { 5, cost.gems },
+            { 6, cost.gold },
+        } };
+
+        std::vector<CostPill> pills;
+        pills.reserve( 7 );
+        for ( const auto & [iconIdx, value] : entries ) {
+            if ( value <= 0 ) {
+                continue;
+            }
+            std::string amtStr = ( value >= 10000 ) ? ( std::to_string( value / 1000 ) + "K" ) : std::to_string( value );
+            const fheroes2::Text txt( amtStr, fheroes2::FontType::smallWhite() );
+            const int32_t tw = txt.width();
+            pills.push_back( { iconIdx, std::move( amtStr ), tw, 9 + 1 + tw } );
+        }
+
+        if ( pills.empty() ) {
+            return;
+        }
+
+        const int32_t maxRowW = kCardArtW3DS - 2;
+        std::vector<std::vector<CostPill>> rows;
+        rows.emplace_back();
+        int32_t curRowW = 0;
+
+        for ( const auto & pill : pills ) {
+            const int32_t nextW = ( rows.back().empty() ? 0 : curRowW + 3 ) + pill.totalW;
+            if ( !rows.back().empty() && nextW > maxRowW ) {
+                rows.emplace_back();
+                curRowW = 0;
+            }
+            if ( !rows.back().empty() ) {
+                curRowW += 3;
+            }
+            curRowW += pill.totalW;
+            rows.back().push_back( pill );
+        }
+
+        const int32_t rowH = 10;
+        const int32_t overlayH = static_cast<int32_t>( rows.size() ) * rowH + 2;
+        const int32_t overlayY = std::max<int32_t>( 1, artBottomY - overlayH );
+
+        // Subtle dark translucent band over building art so costs are always legible.
+        fheroes2::ApplyAlpha( cardImg, 1, overlayY, cardImg, 1, overlayY, kCardArtW3DS, artBottomY - overlayY, 105 );
+
+        int32_t py = overlayY + 1;
+        for ( const auto & row : rows ) {
+            int32_t rowW = 0;
+            for ( size_t i = 0; i < row.size(); ++i ) {
+                rowW += row[i].totalW + ( i + 1 < row.size() ? 3 : 0 );
+            }
+            int32_t px = 1 + std::max<int32_t>( 0, ( kCardArtW3DS - rowW ) / 2 );
+            for ( size_t i = 0; i < row.size(); ++i ) {
+                const auto & p = row[i];
+                fheroes2::Blit( miniIcons[p.iconIdx], cardImg, px, py );
+                const fheroes2::Text txt( p.amount, fheroes2::FontType::smallWhite() );
+                txt.draw( px + 10, py + 1, cardImg );
+                px += p.totalW + ( i + 1 < row.size() ? 3 : 0 );
+            }
+            py += rowH;
+        }
+    }
+
+    fheroes2::Image renderBuildCard3DS( const BuildCard3DS & card, const Castle & castle, const std::array<fheroes2::Image, 7> & miniIcons, const bool isSelected )
+    {
+        fheroes2::Image cardImg( kCardWidth3DS, kCardHeight3DS );
+        cardImg.reset();
+
+        const uint8_t darkBg = fheroes2::GetColorId( 0x20, 0x12, 0x08 );
+        fheroes2::Fill( cardImg, 0, 0, kCardWidth3DS, kCardHeight3DS, darkBg );
+
+        const bool isEvil = Settings::Get().isEvilInterfaceEnabled();
+
+        // Building artwork
+        if ( card.baseType == BUILD_CAPTAIN ) {
+            tileStoneBackground3DS( cardImg, { 1, 1, kCardArtW3DS, kCardArtH3DS }, isEvil );
+            const fheroes2::Sprite & capSpr = Assets::getImage( ICN::getCaptainIcnId( castle.GetRace() ), card.isBuilt ? 1 : 0 );
+            if ( !capSpr.empty() && capSpr.height() > 0 ) {
+                const int32_t dstW = std::clamp<int32_t>( capSpr.width() * kCardArtH3DS / capSpr.height(), 1, kCardArtW3DS );
+                fheroes2::Image scaled( dstW, kCardArtH3DS );
+                scaled.reset();
+                fheroes2::Resize( capSpr, scaled );
+                fheroes2::Blit( scaled, cardImg, 1 + ( kCardArtW3DS - dstW ) / 2, 1 );
+            }
+        }
+        else {
+            const fheroes2::Sprite & bldSpr
+                = Assets::getImage( ICN::getBuildingIcnId( castle.GetRace() ), fheroes2::getIndexBuildingSprite( static_cast<BuildingType>( card.info.getBuilding() ) ) );
+            if ( !bldSpr.empty() ) {
+                fheroes2::Image scaled( kCardArtW3DS, kCardArtH3DS );
+                scaled.reset();
+                fheroes2::Resize( bldSpr, scaled );
+                fheroes2::Copy( scaled, 0, 0, cardImg, 1, 1, kCardArtW3DS, kCardArtH3DS );
+            }
+            else {
+                tileStoneBackground3DS( cardImg, { 1, 1, kCardArtW3DS, kCardArtH3DS }, isEvil );
+            }
+        }
+
+        // Cost overlay on artwork (omitted when fully built)
+        if ( !card.isBuilt ) {
+            drawCardCostOverlay3DS( cardImg, PaymentConditions::BuyBuilding( castle.GetRace(), card.info.getBuilding() ), miniIcons, 1 + kCardArtH3DS );
+        }
+
+        // Top-right status icon: Checkmark (built), Upgrade chevron (upgradeable), or X (not built)
+        const int32_t rightEdge = kCardWidth3DS - 3;
+        if ( card.isBuilt ) {
+            const fheroes2::Sprite & check = Assets::getImage( ICN::TOWNWIND, 11 );
+            if ( !check.empty() ) {
+                const int32_t bx = rightEdge - check.width();
+                const int32_t by = 3;
+                fheroes2::ApplyAlpha( cardImg, std::max<int32_t>( 1, bx - 1 ), by - 1, cardImg, std::max<int32_t>( 1, bx - 1 ), by - 1, check.width() + 2,
+                                      check.height() + 2, 120 );
+                fheroes2::Blit( check, cardImg, bx, by );
+            }
+        }
+        else if ( card.isUpgradeable ) {
+            drawUpgradeBadge3DS( cardImg, rightEdge - 12, 3, card.info.getStatus() );
+        }
+        else {
+            const fheroes2::Sprite & cross = Assets::getImage( ICN::TOWNWIND, 12 );
+            if ( !cross.empty() ) {
+                const int32_t bx = rightEdge - cross.width();
+                const int32_t by = 3;
+                fheroes2::ApplyAlpha( cardImg, std::max<int32_t>( 1, bx - 1 ), by - 1, cardImg, std::max<int32_t>( 1, bx - 1 ), by - 1, cross.width() + 2,
+                                      cross.height() + 2, 120 );
+                fheroes2::Blit( cross, cardImg, bx, by );
+            }
+        }
+
+        // Bottom nameplate: Green if buildable now, Warm bronze if already built, Red if unavailable
+        const int32_t plateY = 1 + kCardArtH3DS;
+        if ( card.info.getStatus() == BuildingStatus::ALLOW_BUILD ) {
+            const fheroes2::Sprite & greenPlate = Assets::getImage( ICN::CASLXTRA, 1 );
+            if ( !greenPlate.empty() ) {
+                fheroes2::Image plate( kCardArtW3DS, kCardPlateH3DS );
+                plate.reset();
+                fheroes2::Resize( greenPlate, plate );
+                fheroes2::Copy( plate, 0, 0, cardImg, 1, plateY, kCardArtW3DS, kCardPlateH3DS );
+            }
+            else {
+                fheroes2::Fill( cardImg, 1, plateY, kCardArtW3DS, kCardPlateH3DS, fheroes2::GetColorId( 0x20, 0x70, 0x20 ) );
+            }
+        }
+        else if ( card.isBuilt ) {
+            const fheroes2::Sprite & bldXtra = Assets::getImage( ICN::BLDGXTRA, 0 );
+            if ( bldXtra.width() >= 131 && bldXtra.height() >= 68 ) {
+                const int32_t cropH = std::min<int32_t>( 11, bldXtra.height() - 58 );
+                const fheroes2::Sprite tanCrop = fheroes2::Crop( bldXtra, 6, 58, 123, cropH );
+                fheroes2::Image plate( kCardArtW3DS, kCardPlateH3DS );
+                plate.reset();
+                fheroes2::Resize( tanCrop, plate );
+                fheroes2::Copy( plate, 0, 0, cardImg, 1, plateY, kCardArtW3DS, kCardPlateH3DS );
+            }
+            else {
+                fheroes2::Fill( cardImg, 1, plateY, kCardArtW3DS, kCardPlateH3DS, fheroes2::GetColorId( 0x8C, 0x6C, 0x3C ) );
+            }
+        }
+        else {
+            const fheroes2::Sprite & redPlate = Assets::getImage( ICN::CASLXTRA, 2 );
+            if ( !redPlate.empty() ) {
+                fheroes2::Image plate( kCardArtW3DS, kCardPlateH3DS );
+                plate.reset();
+                fheroes2::Resize( redPlate, plate );
+                fheroes2::Copy( plate, 0, 0, cardImg, 1, plateY, kCardArtW3DS, kCardPlateH3DS );
+            }
+            else {
+                fheroes2::Fill( cardImg, 1, plateY, kCardArtW3DS, kCardPlateH3DS, fheroes2::GetColorId( 0x78, 0x18, 0x18 ) );
+            }
+        }
+
+        // Building title centered on nameplate
+        std::string label = card.info.GetName();
+        StringReplace( label, ", Level ", " Lv." );
+        fheroes2::Text nameText( label, fheroes2::FontType::smallWhite() );
+        if ( nameText.width() > kCardArtW3DS - 4 ) {
+            nameText.fitToOneRow( kCardArtW3DS - 4 );
+        }
+        const int32_t nameX = 1 + ( kCardArtW3DS - nameText.width() ) / 2;
+        const int32_t nameY = plateY + ( kCardPlateH3DS - nameText.height() ) / 2 + 1;
+        nameText.draw( nameX, nameY, cardImg );
+
+        // Card outer border (highlighted gold frame when selected)
+        if ( isSelected ) {
+            const uint8_t brightGold = fheroes2::GetColorId( 0xFF, 0xEA, 0x40 );
+            const uint8_t warmGold = fheroes2::GetColorId( 0xC8, 0x90, 0x18 );
+            const uint8_t glint = fheroes2::GetColorId( 0xFF, 0xFC, 0xB8 );
+            fheroes2::DrawRect( cardImg, { 0, 0, kCardWidth3DS, kCardHeight3DS }, brightGold );
+            fheroes2::DrawRect( cardImg, { 1, 1, kCardWidth3DS - 2, kCardHeight3DS - 2 }, warmGold );
+            fheroes2::Fill( cardImg, 0, 0, 3, 3, glint );
+            fheroes2::Fill( cardImg, kCardWidth3DS - 3, 0, 3, 3, glint );
+            fheroes2::Fill( cardImg, 0, kCardHeight3DS - 3, 3, 3, glint );
+            fheroes2::Fill( cardImg, kCardWidth3DS - 3, kCardHeight3DS - 3, 3, 3, glint );
+        }
+        else {
+            const uint8_t darkFrame = fheroes2::GetColorId( 0x1A, 0x10, 0x08 );
+            const uint8_t subtleTrim = fheroes2::GetColorId( 0x80, 0x60, 0x34 );
+            fheroes2::DrawRect( cardImg, { 0, 0, kCardWidth3DS, kCardHeight3DS }, darkFrame );
+            fheroes2::DrawLine( cardImg, { 1, 1 }, { kCardWidth3DS - 2, 1 }, subtleTrim );
+            fheroes2::DrawLine( cardImg, { 1, 1 }, { 1, kCardHeight3DS - 2 }, subtleTrim );
+        }
+
+        return cardImg;
+    }
+
+    void drawScrollFade3DS( fheroes2::Image & topBuf, const bool fadeTop, const bool fadeBottom )
+    {
+        // Progressive dark gradient bands at top/bottom edges so scrolled-out rows peek visibly.
+        static constexpr std::array<uint8_t, 6> alphas = { 65, 98, 132, 166, 198, 228 };
+        const int32_t stripH = 4;
+
+        if ( fadeTop ) {
+            for ( size_t i = 0; i < alphas.size(); ++i ) {
+                const int32_t y = static_cast<int32_t>( i ) * stripH;
+                fheroes2::ApplyAlpha( topBuf, 0, y, topBuf, 0, y, kTopWidth3DS, stripH, alphas[i] );
+            }
+        }
+
+        if ( fadeBottom ) {
+            for ( size_t i = 0; i < alphas.size(); ++i ) {
+                const int32_t y = kTopHeight3DS - stripH * static_cast<int32_t>( i + 1 );
+                fheroes2::ApplyAlpha( topBuf, 0, y, topBuf, 0, y, kTopWidth3DS, stripH, alphas[i] );
+            }
+        }
+    }
+
+    void drawBottomStatusBanner3DS( fheroes2::Image & dst, const fheroes2::Rect & area, const std::string & message )
+    {
+        const uint8_t bg = fheroes2::GetColorId( 0x24, 0x14, 0x0A );
+        const uint8_t gold = fheroes2::GetColorId( 0xC8, 0x9C, 0x38 );
+        const uint8_t goldHi = fheroes2::GetColorId( 0xF0, 0xD4, 0x60 );
+        const uint8_t dark = fheroes2::GetColorId( 0x10, 0x08, 0x04 );
+
+        fheroes2::Fill( dst, area.x, area.y, area.width, area.height, bg );
+        fheroes2::DrawRect( dst, area, gold );
+        fheroes2::DrawRect( dst, { area.x + 1, area.y + 1, area.width - 2, area.height - 2 }, dark );
+        fheroes2::Fill( dst, area.x, area.y, 2, 2, goldHi );
+        fheroes2::Fill( dst, area.x + area.width - 2, area.y, 2, 2, goldHi );
+        fheroes2::Fill( dst, area.x, area.y + area.height - 2, 2, 2, goldHi );
+        fheroes2::Fill( dst, area.x + area.width - 2, area.y + area.height - 2, 2, 2, goldHi );
+
+        if ( message.empty() ) {
+            return;
+        }
+
+        const int32_t maxW = area.width - 14;
+        fheroes2::Text statusText( message, fheroes2::FontType::normalYellow() );
+        if ( statusText.rows( maxW ) > 2 ) {
+            statusText.set( message, fheroes2::FontType::smallWhite() );
+        }
+        const int32_t textH = statusText.height( maxW );
+        const int32_t textY = area.y + std::max<int32_t>( 2, ( area.height - textH ) / 2 );
+        statusText.draw( area.x + 7, textY, maxW, dst );
+    }
+}
+#endif
 
 int Castle::DialogBuyHero( const Heroes * hero ) const
 {
@@ -178,12 +609,420 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
 
     dwellingTobuild = BUILD_NOTHING;
 
+#if defined( TARGET_NINTENDO_3DS )
+    {
+        const Settings & conf = Settings::Get();
+        const bool isEvil = conf.isEvilInterfaceEnabled();
+        const bool isSkipTavernInteraction = ( Race::NECR == _race ) && ( conf.getCurrentMapInfo().version == GameVersion::SUCCESSION_WARS );
+
+        fheroes2::Display & display = fheroes2::Display::instance();
+        const fheroes2::ImageRestorer screenRestorer( display, 0, 0, display.width(), display.height() );
+        const fheroes2::Scope3DSCastleBuildView buildViewScope;
+
+        BuildingType mageLevel = BUILD_NOTHING;
+        switch ( GetLevelMageGuild() ) {
+        case 0:
+            mageLevel = BUILD_MAGEGUILD1;
+            break;
+        case 1:
+            mageLevel = BUILD_MAGEGUILD2;
+            break;
+        case 2:
+            mageLevel = BUILD_MAGEGUILD3;
+            break;
+        case 3:
+            mageLevel = BUILD_MAGEGUILD4;
+            break;
+        default:
+            mageLevel = BUILD_MAGEGUILD5;
+            break;
+        }
+
+        struct GroupDef final
+        {
+            std::string title;
+            std::vector<BuildingType> types;
+        };
+
+        std::vector<GroupDef> groups;
+        {
+            GroupDef common;
+            common.title = _( "Common Buildings" );
+            common.types.push_back( mageLevel );
+            if ( !isSkipTavernInteraction ) {
+                common.types.push_back( BUILD_TAVERN );
+            }
+            common.types.push_back( BUILD_THIEVESGUILD );
+            common.types.push_back( BUILD_SHIPYARD );
+            common.types.push_back( BUILD_STATUE );
+            common.types.push_back( BUILD_MARKETPLACE );
+            common.types.push_back( BUILD_WELL );
+            common.types.push_back( BUILD_LEFTTURRET );
+            common.types.push_back( BUILD_RIGHTTURRET );
+            common.types.push_back( BUILD_MOAT );
+            groups.push_back( std::move( common ) );
+
+            GroupDef unique;
+            unique.title = _( "Unique Buildings" );
+            unique.types.push_back( BUILD_CAPTAIN );
+            unique.types.push_back( BUILD_WEL2 );
+            unique.types.push_back( BUILD_SPEC );
+            groups.push_back( std::move( unique ) );
+
+            GroupDef dwellings;
+            dwellings.title = _( "Creature Dwellings" );
+            dwellings.types = { DWELLING_MONSTER1, DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4, DWELLING_MONSTER5, DWELLING_MONSTER6 };
+            groups.push_back( std::move( dwellings ) );
+        }
+
+        std::vector<BuildCard3DS> cards;
+        std::vector<HeaderEntry3DS> headers;
+        std::vector<std::vector<size_t>> rowCardIndices;
+        cards.reserve( 20 );
+
+        int32_t layoutY = 6;
+        int32_t currentGridRow = 0;
+
+        for ( size_t g = 0; g < groups.size(); ++g ) {
+            if ( g > 0 ) {
+                layoutY += 6;
+            }
+            headers.push_back( { layoutY, groups[g].title } );
+            layoutY += kHeaderHeight3DS + 2;
+
+            const auto & types = groups[g].types;
+            for ( size_t i = 0; i < types.size(); i += kGridCols3DS ) {
+                std::vector<size_t> rowIndices;
+                const size_t rowEnd = std::min<size_t>( types.size(), i + kGridCols3DS );
+                for ( size_t j = i; j < rowEnd; ++j ) {
+                    const int32_t col = static_cast<int32_t>( j - i );
+                    const int32_t cx = kGridMarginX3DS + col * ( kCardWidth3DS + kGridGapX3DS );
+                    cards.emplace_back( *this, types[j] );
+                    BuildCard3DS & card = cards.back();
+                    card.rect = { cx, layoutY, kCardWidth3DS, kCardHeight3DS };
+                    card.gridRow = currentGridRow;
+                    card.gridCol = col;
+                    rowIndices.push_back( cards.size() - 1 );
+                }
+                rowCardIndices.push_back( std::move( rowIndices ) );
+                ++currentGridRow;
+                layoutY += kCardHeight3DS + kGridGapY3DS;
+            }
+            // Trim trailing gap after last row of a group
+            layoutY -= kGridGapY3DS;
+        }
+
+        const int32_t contentHeight = std::max<int32_t>( kTopHeight3DS, layoutY + 8 );
+        const int32_t maxScrollY = std::max<int32_t>( 0, contentHeight - kTopHeight3DS );
+        const std::array<fheroes2::Image, 7> miniIcons = createMiniResourceIcons3DS();
+
+        fheroes2::Image contentBuffer( kTopWidth3DS, contentHeight );
+        contentBuffer.reset();
+
+        size_t selectedIndex = 0;
+        int32_t curScrollY = 0;
+        int32_t targetScrollY = 0;
+
+        auto updateTargetScroll = [&]() {
+            if ( cards.empty() ) {
+                return;
+            }
+            const BuildCard3DS & sel = cards[selectedIndex];
+            if ( sel.gridRow == 0 ) {
+                targetScrollY = 0;
+                return;
+            }
+            if ( sel.gridRow + 1 >= static_cast<int32_t>( rowCardIndices.size() ) ) {
+                targetScrollY = maxScrollY;
+                return;
+            }
+            if ( sel.rect.y < targetScrollY + 24 ) {
+                targetScrollY = std::max<int32_t>( 0, sel.rect.y - 24 );
+            }
+            else if ( sel.rect.y + sel.rect.height > targetScrollY + ( kTopHeight3DS - 24 ) ) {
+                targetScrollY = std::min<int32_t>( maxScrollY, sel.rect.y + sel.rect.height - ( kTopHeight3DS - 24 ) );
+            }
+        };
+
+        auto rebuildContentBuffer = [&]() {
+            tileStoneBackground3DS( contentBuffer, { 0, 0, kTopWidth3DS, contentHeight }, isEvil );
+            for ( const auto & hdr : headers ) {
+                drawGroupHeader3DS( contentBuffer, hdr.y, hdr.title );
+            }
+            for ( size_t i = 0; i < cards.size(); ++i ) {
+                const fheroes2::Image cardImg = renderBuildCard3DS( cards[i], *this, miniIcons, i == selectedIndex );
+                fheroes2::Copy( cardImg, 0, 0, contentBuffer, cards[i].rect.x, cards[i].rect.y, cardImg.width(), cardImg.height() );
+            }
+        };
+
+        auto renderTopView = [&]() {
+            fheroes2::Copy( contentBuffer, 0, curScrollY, display, 0, 0, kTopWidth3DS, kTopHeight3DS );
+            fheroes2::Image topView = fheroes2::Crop( display, 0, 0, kTopWidth3DS, kTopHeight3DS );
+            drawScrollFade3DS( topView, curScrollY > 0, curScrollY < maxScrollY );
+            fheroes2::Copy( topView, 0, 0, display, 0, 0, kTopWidth3DS, kTopHeight3DS );
+        };
+
+        Kingdom & kingdom = GetKingdom();
+        Heroes * hero1 = kingdom.GetRecruits().GetHero1();
+        Heroes * hero2 = kingdom.GetRecruits().GetHero2();
+
+        std::string notAllow1Msg;
+        std::string notAllow2Msg;
+        const bool allowBuyHero1 = hero1 ? AllowBuyHero( &notAllow1Msg ) : false;
+        const bool allowBuyHero2 = hero2 ? AllowBuyHero( &notAllow2Msg ) : false;
+
+        // Pre-render the miniature Castle visual onto offscreen 160x148 region then scale to 116x104.
+        fheroes2::Image castleThumb( 116, 104 );
+        castleThumb.reset();
+        {
+            tileStoneBackground3DS( display, { 450, 10, 160, 148 }, isEvil );
+            DrawImageCastle( { 450, 10 } );
+            const fheroes2::Sprite rawCastle = fheroes2::Crop( display, 450, 10, 160, 148 );
+            fheroes2::Resize( rawCastle, castleThumb );
+        }
+
+        const fheroes2::Rect rectHero1( 158, 268, 50, 47 );
+        const fheroes2::Rect rectHero2( 230, 268, 50, 47 );
+        const fheroes2::Rect rectBanner( 14, 378, 292, 46 );
+
+        fheroes2::Rect footerExitLocalRect;
+        fheroes2::Rect exitDisplayRect;
+        fheroes2::Rect resDisplayRect;
+        bool exitPressed = false;
+
+        auto drawHeroSlot = [&]( Heroes * hero, const fheroes2::Rect & area, const bool allowBuy ) {
+            const uint8_t goldFrame = fheroes2::GetColorId( 0xC0, 0x94, 0x34 );
+            fheroes2::DrawRect( display, { area.x - 1, area.y - 1, area.width + 2, area.height + 2 }, goldFrame );
+            if ( hero ) {
+                hero->PortraitRedraw( area.x, area.y, PORT_MEDIUM, display );
+                fheroes2::Text hName( hero->GetName(), fheroes2::FontType::smallWhite() );
+                if ( hName.width() > 64 ) {
+                    hName.fitToOneRow( 64 );
+                }
+                hName.draw( area.x + ( area.width - hName.width() ) / 2, area.y + area.height + 2, display );
+            }
+            else {
+                const fheroes2::Sprite & emptySpr = Assets::getImage( ICN::STRIP, 3 );
+                if ( !emptySpr.empty() ) {
+                    fheroes2::Image scaled( area.width, area.height );
+                    scaled.reset();
+                    fheroes2::Resize( emptySpr, scaled );
+                    fheroes2::Copy( scaled, 0, 0, display, area.x, area.y, area.width, area.height );
+                }
+            }
+            if ( !allowBuy ) {
+                const fheroes2::Sprite & denySpr = Assets::getImage( ICN::TOWNWIND, 12 );
+                if ( !denySpr.empty() ) {
+                    fheroes2::Blit( denySpr, display, area.x + area.width - denySpr.width() - 2, area.y + area.height - denySpr.height() - 2 );
+                }
+            }
+        };
+
+        auto renderBottomFooter = [&]() {
+            const fheroes2::Image footerImg = fheroes2::render3DSCastleResourceFooter( kingdom.GetFunds(), exitPressed, footerExitLocalRect );
+            fheroes2::Copy( footerImg, 0, 0, display, 0, 432, footerImg.width(), footerImg.height() );
+            exitDisplayRect = { footerExitLocalRect.x, 432 + footerExitLocalRect.y, footerExitLocalRect.width, footerExitLocalRect.height };
+            resDisplayRect = { 0, 432, footerExitLocalRect.x, footerImg.height() };
+        };
+
+        auto renderBottomView = [&]() {
+            fheroes2::draw3DSPanel( { kBottomX3DS, kBottomY3DS, kBottomWidth3DS, kBottomHeight3DS } );
+
+            // Left column: Castle name + miniature town preview
+            fheroes2::Text castleTitle( GetName(), fheroes2::FontType::normalYellow() );
+            if ( castleTitle.width() > 118 ) {
+                castleTitle.fitToOneRow( 118 );
+            }
+            castleTitle.draw( 16 + ( 116 - castleTitle.width() ) / 2, 250, display );
+
+            fheroes2::DrawRect( display, { 15, 267, 118, 106 }, fheroes2::GetColorId( 0xC0, 0x94, 0x34 ) );
+            fheroes2::Copy( castleThumb, 0, 0, display, 16, 268, castleThumb.width(), castleThumb.height() );
+
+            // Right column: Hero recruitment + selected building description
+            const fheroes2::Text recruitHdr( _( "Recruit Heroes" ), fheroes2::FontType::smallYellow() );
+            recruitHdr.draw( 142 + ( 162 - recruitHdr.width() ) / 2, 252, display );
+
+            drawHeroSlot( hero1, rectHero1, allowBuyHero1 );
+            drawHeroSlot( hero2, rectHero2, allowBuyHero2 );
+
+            if ( !cards.empty() ) {
+                const BuildCard3DS & sel = cards[selectedIndex];
+                std::string selTitle = sel.info.GetName();
+                fheroes2::Text selTitleTxt( selTitle, fheroes2::FontType::smallYellow() );
+                if ( selTitleTxt.width() > 160 ) {
+                    selTitleTxt.fitToOneRow( 160 );
+                }
+                selTitleTxt.draw( 142 + ( 162 - selTitleTxt.width() ) / 2, 329, display );
+
+                std::string descStr;
+                if ( sel.info.getStatus() == BuildingStatus::REQUIRES_BUILD ) {
+                    descStr = fheroes2::getBuildingRequirementString( _race, static_cast<BuildingType>( sel.info.getBuilding() ) );
+                }
+                if ( descStr.empty() ) {
+                    descStr = sel.info.getDescription();
+                }
+                const fheroes2::Text descTxt( descStr, fheroes2::FontType::smallWhite() );
+                descTxt.drawInRoi( 142, 341, 162, display, { 142, 341, 162, 34 } );
+
+                std::string statusMsg = sel.info.getConditionText();
+                if ( sel.info.getStatus() == BuildingStatus::REQUIRES_BUILD ) {
+                    const std::string req = fheroes2::getBuildingRequirementString( _race, static_cast<BuildingType>( sel.info.getBuilding() ) );
+                    if ( !req.empty() ) {
+                        statusMsg += " (" + req + ')';
+                    }
+                }
+                drawBottomStatusBanner3DS( display, rectBanner, statusMsg );
+            }
+
+            renderBottomFooter();
+        };
+
+        auto openModal = [&]( const std::function<bool()> & modalFn ) -> bool {
+            tileStoneBackground3DS( display, { 0, 0, display.width(), display.height() }, isEvil );
+            const fheroes2::Scope3DSCastleView modalView3DS( true );
+            const CursorRestorer modalCursor( true, Cursor::POINTER );
+            const bool result = modalFn();
+            LocalEvent::Get().reset();
+            return result;
+        };
+
+        rebuildContentBuffer();
+        renderTopView();
+        renderBottomView();
+        display.render();
+
+        LocalEvent & le = LocalEvent::Get();
+        const bool canSwitchCastles = ( kingdom.GetCastles().size() > 1 );
+
+        while ( le.HandleEvents() ) {
+            bool selectionChanged = false;
+            bool needFooterRedraw = false;
+
+            if ( Game::HotKeyCloseWindow() || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) ) {
+                return ConstructionDialogResult::DoNothing;
+            }
+
+            if ( canSwitchCastles ) {
+                if ( le.isKeyPressed( fheroes2::Key::KEY_PAGE_UP ) ) {
+                    return ConstructionDialogResult::PrevConstructionWindow;
+                }
+                if ( le.isKeyPressed( fheroes2::Key::KEY_PAGE_DOWN ) ) {
+                    return ConstructionDialogResult::NextConstructionWindow;
+                }
+            }
+
+            if ( !cards.empty() ) {
+                if ( le.isKeyPressed( fheroes2::Key::KEY_RIGHT ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_RIGHT ) ) {
+                    selectedIndex = ( selectedIndex + 1 ) % cards.size();
+                    selectionChanged = true;
+                }
+                else if ( le.isKeyPressed( fheroes2::Key::KEY_LEFT ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_LEFT ) ) {
+                    selectedIndex = ( selectedIndex + cards.size() - 1 ) % cards.size();
+                    selectionChanged = true;
+                }
+                else if ( le.isKeyPressed( fheroes2::Key::KEY_DOWN ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_DOWN ) ) {
+                    const int32_t curRow = cards[selectedIndex].gridRow;
+                    const int32_t curCol = cards[selectedIndex].gridCol;
+                    const size_t nextRow = static_cast<size_t>( ( curRow + 1 ) % static_cast<int32_t>( rowCardIndices.size() ) );
+                    const auto & nextRowCards = rowCardIndices[nextRow];
+                    const size_t targetIdx = std::min<size_t>( static_cast<size_t>( curCol ), nextRowCards.size() - 1 );
+                    selectedIndex = nextRowCards[targetIdx];
+                    selectionChanged = true;
+                }
+                else if ( le.isKeyPressed( fheroes2::Key::KEY_UP ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_UP ) ) {
+                    const int32_t curRow = cards[selectedIndex].gridRow;
+                    const int32_t curCol = cards[selectedIndex].gridCol;
+                    const size_t numRows = rowCardIndices.size();
+                    const size_t prevRow = ( static_cast<size_t>( curRow ) + numRows - 1 ) % numRows;
+                    const auto & prevRowCards = rowCardIndices[prevRow];
+                    const size_t targetIdx = std::min<size_t>( static_cast<size_t>( curCol ), prevRowCards.size() - 1 );
+                    selectedIndex = prevRowCards[targetIdx];
+                    selectionChanged = true;
+                }
+                else if ( le.isKeyPressed( fheroes2::Key::KEY_ENTER ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_OKAY ) ) {
+                    BuildCard3DS & sel = cards[selectedIndex];
+                    if ( openModal( [&sel]() { return sel.info.DialogBuyBuilding( true ); } ) ) {
+                        dwellingTobuild = sel.info.getBuilding();
+                        return ConstructionDialogResult::Build;
+                    }
+                    rebuildContentBuffer();
+                    renderTopView();
+                    renderBottomView();
+                    display.render();
+                    continue;
+                }
+            }
+
+            if ( hero1 && le.MouseClickLeft( rectHero1 ) ) {
+                if ( openModal( [this, hero1]() { return Dialog::OK == DialogBuyHero( hero1 ); } ) ) {
+                    RecruitHero( hero1 );
+                    return ConstructionDialogResult::RecruitHero;
+                }
+                rebuildContentBuffer();
+                renderTopView();
+                renderBottomView();
+                display.render();
+                continue;
+            }
+            if ( hero2 && le.MouseClickLeft( rectHero2 ) ) {
+                if ( openModal( [this, hero2]() { return Dialog::OK == DialogBuyHero( hero2 ); } ) ) {
+                    RecruitHero( hero2 );
+                    return ConstructionDialogResult::RecruitHero;
+                }
+                rebuildContentBuffer();
+                renderTopView();
+                renderBottomView();
+                display.render();
+                continue;
+            }
+
+            if ( le.MouseClickLeft( resDisplayRect ) ) {
+                openModal( [&kingdom]() {
+                    fheroes2::showKingdomIncome( kingdom, Dialog::OK );
+                    return false;
+                } );
+                rebuildContentBuffer();
+                renderTopView();
+                renderBottomView();
+                display.render();
+                continue;
+            }
+
+            const bool exitHeld = le.isMouseLeftButtonPressedAndHeldInArea( exitDisplayRect );
+            if ( exitHeld != exitPressed ) {
+                exitPressed = exitHeld;
+                needFooterRedraw = true;
+            }
+            if ( le.MouseClickLeft( exitDisplayRect ) ) {
+                return ConstructionDialogResult::DoNothing;
+            }
+
+            if ( selectionChanged ) {
+                updateTargetScroll();
+                rebuildContentBuffer();
+                renderBottomView();
+            }
+
+            if ( curScrollY != targetScrollY || selectionChanged ) {
+                if ( curScrollY != targetScrollY ) {
+                    const int32_t diff = targetScrollY - curScrollY;
+                    curScrollY += ( std::abs( diff ) <= 4 ) ? diff : ( diff / 3 + ( diff > 0 ? 1 : -1 ) );
+                }
+                renderTopView();
+                display.render();
+            }
+            else if ( needFooterRedraw ) {
+                renderBottomFooter();
+                display.render( { 0, 432, kBottomWidth3DS, 48 } );
+            }
+        }
+
+        return ConstructionDialogResult::DoNothing;
+    }
+#endif
+
     // setup cursor
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
-
-#if defined( TARGET_NINTENDO_3DS )
-    const fheroes2::Scope3DSCastleView castleSubView3DS( true );
-#endif
 
     fheroes2::Display & display = fheroes2::Display::instance();
     const fheroes2::ImageRestorer restorer( display, ( display.width() - fheroes2::Display::DEFAULT_WIDTH ) / 2,

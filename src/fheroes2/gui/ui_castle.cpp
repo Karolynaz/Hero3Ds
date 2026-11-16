@@ -302,7 +302,7 @@ namespace fheroes2
     }
 
 #if defined( TARGET_NINTENDO_3DS )
-    void update3DSCastleResourceFooter( const Funds & kingdomTreasures, const bool exitPressed )
+    Image render3DSCastleResourceFooter( const Funds & kingdomTreasures, const bool exitPressed, Rect & outExitRect )
     {
         constexpr int32_t footerWidth = 320;
         constexpr int32_t footerHeight = 48;
@@ -315,6 +315,7 @@ namespace fheroes2
         const Sprite & exitSprite = Assets::getImage( ICN::BUTTON_EXIT_TOWN, exitPressed ? 1 : 0 );
         const int32_t exitX = footerWidth - 5 - exitSprite.width();
         const int32_t exitY = ( footerHeight - exitSprite.height() ) / 2;
+        outExitRect = { exitX, exitY, exitSprite.width(), exitSprite.height() };
         Blit( exitSprite, footer, exitX, exitY );
 
         const int32_t resourcesAreaWidth = exitX - 8;
@@ -365,7 +366,14 @@ namespace fheroes2
             valueText.draw( slotX + ( slotWidth - valueText.width() ) / 2, 33, footer );
         }
 
-        set3DSCastleFooter( footer.image(), footerWidth, footerHeight, { exitX, exitY, exitSprite.width(), exitSprite.height() } );
+        return footer;
+    }
+
+    void update3DSCastleResourceFooter( const Funds & kingdomTreasures, const bool exitPressed )
+    {
+        Rect exitRect;
+        const Image footer = render3DSCastleResourceFooter( kingdomTreasures, exitPressed, exitRect );
+        set3DSCastleFooter( footer.image(), footer.width(), footer.height(), exitRect );
     }
 #endif
 

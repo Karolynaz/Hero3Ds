@@ -93,17 +93,27 @@ int main()
     // Castle main split: 640x256 panorama stretches across the 400x240 top screen,
     // while 552x204 army/portraits strip maps above a 320x48 native footer.
     std::vector<uint8_t> footer( 320 * 48, 3 );
-    const CastleFrame castleMain{ true, false, footer.data(), 320, 48 };
+    const CastleFrame castleMain{ true, false, false, footer.data(), 320, 48 };
     renderFramebuffers( image.data(), 640, 480, palette, top.data() + 1, bottom.data() + 1, false, nullptr, nullptr, nullptr, &castleMain );
     assert( pixel( top, 0, 0 ) == 0x112233 && pixel( top, 399, 239 ) == 0xABCDEF );
     assert( pixel( bottom, 0, 0 ) == 0xABCDEF && pixel( bottom, 319, 191 ) == 0xABCDEF );
     assert( pixel( bottom, 0, 192 ) == 0x010203 && pixel( bottom, 319, 239 ) == 0x010203 );
 
     // Castle sub-screen: 640x480 canvas scales across the full 400x240 top screen.
-    const CastleFrame castleSub{ false, true, nullptr, 0, 0 };
+    const CastleFrame castleSub{ false, true, false, nullptr, 0, 0 };
     renderFramebuffers( image.data(), 640, 480, palette, top.data() + 1, bottom.data() + 1, false, nullptr, nullptr, nullptr, &castleSub );
     assert( pixel( top, 0, 0 ) == 0x112233 && pixel( top, 399, 239 ) == 0xABCDEF );
     assert( pixel( bottom, 0, 0 ) == 0 && pixel( bottom, 319, 239 ) == 0 );
+
+    // Castle native dual (Build Pen): 400x240 top 1:1 from y=[0..239] and 320x240 bottom 1:1 from y=[240..479].
+    std::vector<uint8_t> dualImage( 640 * 480, 1 );
+    dualImage[239 * 640 + 399] = 3;
+    dualImage[240 * 640 + 0] = 2;
+    dualImage[479 * 640 + 319] = 3;
+    const CastleFrame castleDual{ false, false, true, nullptr, 0, 0 };
+    renderFramebuffers( dualImage.data(), 640, 480, palette, top.data() + 1, bottom.data() + 1, false, nullptr, nullptr, nullptr, &castleDual );
+    assert( pixel( top, 0, 0 ) == 0x112233 && pixel( top, 399, 239 ) == 0x010203 );
+    assert( pixel( bottom, 0, 0 ) == 0xABCDEF && pixel( bottom, 319, 239 ) == 0x010203 );
 
     // Scaled indexed snapshot captures the 400x240 region cleanly.
     std::vector<uint8_t> scaled( 400 * 240, 0 );

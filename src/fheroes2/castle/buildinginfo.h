@@ -53,6 +53,21 @@ public:
         return _buildingType;
     }
 
+    BuildingStatus getStatus() const
+    {
+        return _status;
+    }
+
+    const std::string & getDescription() const
+    {
+        return description;
+    }
+
+    std::string getConditionText() const
+    {
+        return GetConditionDescription();
+    }
+
     void SetPos( int32_t, int32_t );
 
     const fheroes2::Rect & GetArea() const

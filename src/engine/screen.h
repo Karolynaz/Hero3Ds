@@ -55,9 +55,11 @@ namespace fheroes2
     Point map3DSBattlePointer( Point viewportPoint );
     const uint8_t * get3DSBattleSnapshot();
     void pushCastle3DSView( bool fullTop );
+    void pushCastle3DSNativeDual();
     void popCastle3DSView();
     bool is3DSCastleView();
     bool is3DSCastleSubView();
+    bool is3DSCastleNativeDual();
     Point map3DSCastleTopPointer( Point viewportPoint );
     Point map3DSCastleSubPointer( Point viewportPoint );
     Point map3DSCastleTouch( Point bottomPoint );
@@ -76,6 +78,20 @@ namespace fheroes2
         }
         Scope3DSCastleView( const Scope3DSCastleView & ) = delete;
         Scope3DSCastleView & operator=( const Scope3DSCastleView & ) = delete;
+    };
+    class Scope3DSCastleBuildView final
+    {
+    public:
+        Scope3DSCastleBuildView()
+        {
+            pushCastle3DSNativeDual();
+        }
+        ~Scope3DSCastleBuildView()
+        {
+            popCastle3DSView();
+        }
+        Scope3DSCastleBuildView( const Scope3DSCastleBuildView & ) = delete;
+        Scope3DSCastleBuildView & operator=( const Scope3DSCastleBuildView & ) = delete;
     };
     void pop3DSStandardLayout();
     void push3DSNativeDialog( bool topOverlay );

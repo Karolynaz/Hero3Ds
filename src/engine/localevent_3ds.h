@@ -126,8 +126,9 @@ namespace EventProcessing
             const bool battleView = !nativeDialog && fheroes2::is3DSBattleView();
             const bool castleView = !nativeDialog && !battleView && fheroes2::is3DSCastleView();
             const bool castleSubView = !nativeDialog && !battleView && !castleView && fheroes2::is3DSCastleSubView();
+            const bool castleBuildView = !nativeDialog && !battleView && !castleView && !castleSubView && fheroes2::is3DSCastleNativeDual();
             const bool battleViewChanged = battleView != _wasBattleView;
-            const bool castleViewChanged = ( castleView != _wasCastleView ) || ( castleSubView != _wasCastleSubView );
+            const bool castleViewChanged = ( castleView != _wasCastleView ) || ( castleSubView != _wasCastleSubView ) || ( castleBuildView != _wasCastleBuildView );
             const bool dialogFreePointer = nativeDialog && !fheroes2::is3DSDialogExplicitLayout() && ( held & KEY_L );
             if ( dialogFreePointer ) {
                 auto viewport = fheroes2::get3DSDialogViewport();
@@ -270,6 +271,9 @@ namespace EventProcessing
                     events._emulatedPointerPos = { static_cast<double>( point.x ), static_cast<double>( point.y ) };
                 }
             }
+            else if ( castleBuildView ) {
+                // Build Pen uses card focus on the top screen with no floating mouse cursor.
+            }
             else {
                 const bool adventureLayout = fheroes2::is3DSAdventureLayout();
                 const int width = adventureLayout ? 400 : display.width();
@@ -303,13 +307,14 @@ namespace EventProcessing
                     fheroes2::set3DSAdventureEdgeScroll( {} );
                 }
             }
-            if ( dialogFreePointer || nativeDialog || battleView || castleView || castleSubView ) {
+            if ( dialogFreePointer || nativeDialog || battleView || castleView || castleSubView || castleBuildView ) {
                 _edgeScrollArmed = false;
                 fheroes2::set3DSAdventureEdgeScroll( {} );
             }
             _wasBattleView = battleView;
             _wasCastleView = castleView;
             _wasCastleSubView = castleSubView;
+            _wasCastleBuildView = castleBuildView;
             _wasDialogFreePointer = dialogFreePointer;
             fheroes2::Point projectedTouch( -1, -1 );
             if ( held & KEY_TOUCH ) {
@@ -324,11 +329,11 @@ namespace EventProcessing
                 else if ( castleView ) {
                     projectedTouch = fheroes2::map3DSCastleTouch( { touch.px, touch.py } );
                 }
-                else if ( fheroes2::is3DSAdventureLayout() ) {
+                else if ( castleBuildView || fheroes2::is3DSAdventureLayout() ) {
                     projectedTouch = { touch.px, touch.py + 240 };
                 }
             }
-            const bool touchEnabled = nativeDialog || fheroes2::is3DSAdventureLayout()
+            const bool touchEnabled = nativeDialog || fheroes2::is3DSAdventureLayout() || castleBuildView
                                       || ( ( battleView || castleView ) && ( !( held & KEY_TOUCH ) || projectedTouch.x >= 0 ) );
             const auto touchTransition
                 = _touchGate.update( touchEnabled && !battleViewChanged && !castleViewChanged && !dialogChanged, held & KEY_TOUCH, down & KEY_TOUCH, up & KEY_TOUCH );
@@ -360,28 +365,78 @@ namespace EventProcessing
                     events.onMouseButtonEvent( true, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, events.getMouseCursorPos() );
                 }
             }
-            if ( down & KEY_A )
-                events.onMouseButtonEvent( true, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, events.getMouseCursorPos() );
-            if ( up & KEY_A )
-                events.onMouseButtonEvent( false, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, events.getMouseCursorPos() );
+            if ( !castleBuildView ) {
+                if ( down & KEY_A )
+                    events.onMouseButtonEvent( true, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, events.getMouseCursorPos() );
+                if ( up & KEY_A )
+                    events.onMouseButtonEvent( false, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, events.getMouseCursorPos() );
+            }
 
             fheroes2::Key key = fheroes2::Key::NONE;
             if ( ( down & ( KEY_B | KEY_SELECT ) ) && ( !nativeDialog || fheroes2::is3DSDialogClosable() ) )
                 key = fheroes2::Key::KEY_ESCAPE;
-            else if ( down & KEY_START )
+            else if ( ( down & KEY_START ) || ( castleBuildView && ( down & KEY_A ) ) )
                 key = fheroes2::Key::KEY_ENTER;
+            else if ( castleBuildView && ( down & KEY_L ) )
+                key = fheroes2::Key::KEY_PAGE_UP;
+            else if ( castleBuildView && ( down & KEY_R ) )
+                key = fheroes2::Key::KEY_PAGE_DOWN;
             else if ( down & KEY_X )
                 key = fheroes2::Key::KEY_E;
             else if ( down & KEY_Y )
                 key = fheroes2::Key::KEY_H;
-            else if ( !nativeDialog && !battleView && ( held & KEY_DLEFT ) )
-                key = fheroes2::Key::KEY_LEFT;
-            else if ( !nativeDialog && !battleView && ( held & KEY_DRIGHT ) )
-                key = fheroes2::Key::KEY_RIGHT;
-            else if ( !nativeDialog && !battleView && ( held & KEY_DUP ) )
-                key = fheroes2::Key::KEY_UP;
-            else if ( !nativeDialog && !battleView && ( held & KEY_DDOWN ) )
-                key = fheroes2::Key::KEY_DOWN;
+            else if ( castleBuildView ) {
+                const int stickH = ( circle.dx > 45 ) ? 1 : ( ( circle.dx < -45 ) ? -1 : 0 );
+                const int stickV = ( circle.dy < -45 ) ? 1 : ( ( circle.dy > 45 ) ? -1 : 0 );
+                const int dpadH = static_cast<int>( ( held & KEY_DRIGHT ) != 0 ) - static_cast<int>( ( held & KEY_DLEFT ) != 0 );
+                const int dpadV = static_cast<int>( ( held & KEY_DDOWN ) != 0 ) - static_cast<int>( ( held & KEY_DUP ) != 0 );
+                int dirH = dpadH != 0 ? dpadH : stickH;
+                int dirV = dpadV != 0 ? dpadV : stickV;
+                if ( dpadH == 0 && dpadV == 0 && stickH != 0 && stickV != 0 ) {
+                    if ( std::abs( circle.dx ) >= std::abs( circle.dy ) )
+                        dirV = 0;
+                    else
+                        dirH = 0;
+                }
+                fheroes2::Key desired = fheroes2::Key::NONE;
+                if ( dirH < 0 )
+                    desired = fheroes2::Key::KEY_LEFT;
+                else if ( dirH > 0 )
+                    desired = fheroes2::Key::KEY_RIGHT;
+                else if ( dirV < 0 )
+                    desired = fheroes2::Key::KEY_UP;
+                else if ( dirV > 0 )
+                    desired = fheroes2::Key::KEY_DOWN;
+
+                if ( desired == fheroes2::Key::NONE ) {
+                    _buildNavKey = fheroes2::Key::NONE;
+                    _buildNavRepeat = 0.0;
+                }
+                else if ( desired != _buildNavKey || castleViewChanged ) {
+                    key = desired;
+                    _buildNavKey = desired;
+                    _buildNavRepeat = 0.28;
+                }
+                else {
+                    _buildNavRepeat -= std::clamp( elapsed, 0.0, 0.05 );
+                    if ( _buildNavRepeat <= 0.0 ) {
+                        key = desired;
+                        _buildNavRepeat = 0.14;
+                    }
+                }
+            }
+            else {
+                _buildNavKey = fheroes2::Key::NONE;
+                _buildNavRepeat = 0.0;
+                if ( !nativeDialog && !battleView && ( held & KEY_DLEFT ) )
+                    key = fheroes2::Key::KEY_LEFT;
+                else if ( !nativeDialog && !battleView && ( held & KEY_DRIGHT ) )
+                    key = fheroes2::Key::KEY_RIGHT;
+                else if ( !nativeDialog && !battleView && ( held & KEY_DUP ) )
+                    key = fheroes2::Key::KEY_UP;
+                else if ( !nativeDialog && !battleView && ( held & KEY_DDOWN ) )
+                    key = fheroes2::Key::KEY_DOWN;
+            }
             if ( _previousKey != fheroes2::Key::NONE && _previousKey != key ) {
                 events.onKeyboardEvent( _previousKey, 0, LocalEvent::KeyboardEventState::KEY_UP );
             }
@@ -401,8 +456,11 @@ namespace EventProcessing
         bool _wasBattleView{ false };
         bool _wasCastleView{ false };
         bool _wasCastleSubView{ false };
+        bool _wasCastleBuildView{ false };
         bool _wasDialogFreePointer{ false };
         bool _edgeScrollArmed{ false };
+        fheroes2::Key _buildNavKey{ fheroes2::Key::NONE };
+        double _buildNavRepeat{ 0.0 };
         fheroes2::PointBase2D<double> _dialogFreePointerPos;
         fheroes2::PointBase2D<double> _dialogPanRemainder;
         size_t _dialogScopeId{ 0 };

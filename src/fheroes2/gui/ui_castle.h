@@ -42,6 +42,7 @@ namespace fheroes2
     Rect drawResourcePanel( const Funds & kingdomTreasures, Image & output, const Point & offset );
 
 #if defined( TARGET_NINTENDO_3DS )
+    Image render3DSCastleResourceFooter( const Funds & kingdomTreasures, bool exitPressed, Rect & outExitRect );
     void update3DSCastleResourceFooter( const Funds & kingdomTreasures, bool exitPressed );
 #endif
 

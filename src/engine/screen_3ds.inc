@@ -101,7 +101,8 @@ protected:
         int castleFooterWidth = 0;
         int castleFooterHeight = 0;
         const uint8_t * castleFooter = fheroes2::get3DSCastleFooter( castleFooterWidth, castleFooterHeight );
-        const fheroes2::threeDS::CastleFrame castle{ fheroes2::is3DSCastleView(), fheroes2::is3DSCastleSubView(), castleFooter, castleFooterWidth, castleFooterHeight };
+        const fheroes2::threeDS::CastleFrame castle{ fheroes2::is3DSCastleView(), fheroes2::is3DSCastleSubView(), fheroes2::is3DSCastleNativeDual(),
+                                                     castleFooter, castleFooterWidth, castleFooterHeight };
         fheroes2::threeDS::renderFramebuffers( display.image(), display.width(), display.height(), colors, top, bottom, fheroes2::is3DSAdventureLayout(),
                                                fheroes2::get3DSAdventureSnapshot(), &battle, &dialog, &castle );
         gfxFlushBuffers();

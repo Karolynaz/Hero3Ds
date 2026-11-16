@@ -1469,6 +1469,7 @@ namespace fheroes2
     struct Castle3DSState
     {
         bool fullTop{ false };
+        bool nativeDual{ false };
         unsigned baseline{ 0 };
     };
     static std::vector<Castle3DSState> castle3DSStack;
@@ -1579,7 +1580,11 @@ namespace fheroes2
     }
     void pushCastle3DSView( const bool fullTop )
     {
-        castle3DSStack.push_back( { fullTop, standard3DSLayoutDepth } );
+        castle3DSStack.push_back( { fullTop, false, standard3DSLayoutDepth } );
+    }
+    void pushCastle3DSNativeDual()
+    {
+        castle3DSStack.push_back( { false, true, standard3DSLayoutDepth } );
     }
     void popCastle3DSView()
     {
@@ -1614,12 +1619,17 @@ namespace fheroes2
     }
     bool is3DSCastleView()
     {
-        return !castle3DSStack.empty() && !castle3DSStack.back().fullTop && !battle3DSActive
+        return !castle3DSStack.empty() && !castle3DSStack.back().fullTop && !castle3DSStack.back().nativeDual && !battle3DSActive
                && standard3DSLayoutDepth == castle3DSStack.back().baseline;
     }
     bool is3DSCastleSubView()
     {
-        return !castle3DSStack.empty() && castle3DSStack.back().fullTop && !battle3DSActive
+        return !castle3DSStack.empty() && castle3DSStack.back().fullTop && !castle3DSStack.back().nativeDual && !battle3DSActive
+               && standard3DSLayoutDepth == castle3DSStack.back().baseline;
+    }
+    bool is3DSCastleNativeDual()
+    {
+        return !castle3DSStack.empty() && castle3DSStack.back().nativeDual && !battle3DSActive
                && standard3DSLayoutDepth == castle3DSStack.back().baseline;
     }
     Point map3DSCastleTopPointer( const Point viewportPoint )
@@ -1887,7 +1897,9 @@ namespace fheroes2
         frame.topOverlay = overlay;
         const bool wasCastleView = is3DSCastleView();
         const bool wasCastleSubView = is3DSCastleSubView();
-        frame.enabled = explicitLayout || is3DSNativeDialog() || is3DSAdventureLayout() || is3DSBattleView() || wasCastleView || wasCastleSubView;
+        const bool wasCastleBuildView = is3DSCastleNativeDual();
+        frame.enabled = explicitLayout || is3DSNativeDialog() || is3DSAdventureLayout() || is3DSBattleView() || wasCastleView || wasCastleSubView
+                        || wasCastleBuildView;
 #if defined( TARGET_NINTENDO_3DS )
         auto & display = Display::instance();
         if ( frame.enabled && !display.empty() ) {
@@ -2046,6 +2058,9 @@ namespace fheroes2
         }
         else if ( is3DSCastleView() ) {
             maxCursorBottomY = 256;
+        }
+        else if ( is3DSCastleNativeDual() ) {
+            drawSoftwareCursor = false;
         }
 #endif
         if ( drawSoftwareCursor && _cursor->isVisible() && _cursor->isSoftwareEmulation() && !_cursor->_image.empty() ) {

@@ -57,6 +57,7 @@ namespace fheroes2::threeDS
     {
         bool mainView{ false };
         bool fullTop{ false };
+        bool nativeDual{ false };
         const uint8_t * footer{ nullptr };
         int footerWidth{ 0 };
         int footerHeight{ 0 };
@@ -298,6 +299,10 @@ namespace fheroes2::threeDS
         }
         else if ( castle && castle->fullTop ) {
             copyScaledFull( top, 400, 240, std::min( imageWidth, 640 ), std::min( imageHeight, 480 ) );
+        }
+        else if ( castle && castle->nativeDual ) {
+            copy( top, 400, 0, 1, 0, image );
+            copy( bottom, 320, 240, 1, 0, image );
         }
         else if ( adventure ) {
             copy( top, 400, 0, 1, 0, image );
