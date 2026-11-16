@@ -313,11 +313,11 @@ namespace fheroes2
         DrawRect( footer, { 0, 0, footerWidth, footerHeight }, GetColorId( 0xC8, 0xA8, 0x38 ) );
 
         const Sprite & exitSprite = Assets::getImage( ICN::BUTTON_EXIT_TOWN, exitPressed ? 1 : 0 );
-        const int32_t exitX = footerWidth - 4 - exitSprite.width();
+        const int32_t exitX = footerWidth - 5 - exitSprite.width();
         const int32_t exitY = ( footerHeight - exitSprite.height() ) / 2;
         Blit( exitSprite, footer, exitX, exitY );
 
-        const int32_t resourcesAreaWidth = exitX - 4;
+        const int32_t resourcesAreaWidth = exitX - 8;
         const std::array<std::pair<uint32_t, int32_t>, 7> items = { {
             { 0, kingdomTreasures.wood },
             { 2, kingdomTreasures.ore },
@@ -327,18 +327,42 @@ namespace fheroes2
             { 5, kingdomTreasures.gems },
             { 6, kingdomTreasures.gold },
         } };
+        static const std::array<Image, 7> scaledIcons = []() {
+            std::array<Image, 7> icons;
+            for ( uint32_t i = 0; i < 7; ++i ) {
+                const Sprite & original = Assets::getImage( ICN::RESOURCE, i );
+                int32_t targetW = 24;
+                int32_t targetH = 20;
+                if ( i == 6 ) {
+                    targetW = 26;
+                    targetH = 18;
+                }
+                else if ( original.width() > 0 && original.height() > 0 ) {
+                    const int32_t byW = std::max<int32_t>( 1, original.height() * targetW / original.width() );
+                    if ( byW <= targetH ) {
+                        targetH = byW;
+                    }
+                    else {
+                        targetW = std::max<int32_t>( 1, original.width() * targetH / original.height() );
+                    }
+                }
+                icons[i] = Image( targetW, targetH );
+                Resize( original, icons[i] );
+            }
+            return icons;
+        }();
         const int32_t slotWidth = resourcesAreaWidth / 7;
         const FontType fontType( FontSize::SMALL, FontColor::WHITE );
 
         for ( size_t i = 0; i < items.size(); ++i ) {
-            const Sprite & icon = Assets::getImage( ICN::RESOURCE, items[i].first );
-            const int32_t slotX = 2 + static_cast<int32_t>( i ) * slotWidth;
+            const Image & icon = scaledIcons[items[i].first];
+            const int32_t slotX = 3 + static_cast<int32_t>( i ) * slotWidth;
             const int32_t iconX = slotX + ( slotWidth - icon.width() ) / 2;
-            const int32_t iconY = std::max<int32_t>( 2, 34 - icon.height() );
+            const int32_t iconY = std::max<int32_t>( 4, 29 - icon.height() );
             Blit( icon, footer, iconX, iconY );
 
             const Text valueText( std::to_string( items[i].second ), fontType );
-            valueText.draw( slotX + ( slotWidth - valueText.width() ) / 2, 35, footer );
+            valueText.draw( slotX + ( slotWidth - valueText.width() ) / 2, 33, footer );
         }
 
         set3DSCastleFooter( footer.image(), footerWidth, footerHeight, { exitX, exitY, exitSprite.width(), exitSprite.height() } );
