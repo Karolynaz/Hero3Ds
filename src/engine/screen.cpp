@@ -1765,8 +1765,15 @@ namespace fheroes2
             frame.savedCanvas.assign( display.image(), display.image() + static_cast<size_t>( display.width() ) * display.height() );
             frame.frozenTop.assign( 400 * 240, 0 );
             if ( !castle3DSStack.empty() ) {
-                const int srcHeight = castle3DSStack.back().fullTop ? 480 : 256;
-                threeDS::copyScaledIndexed( display.image(), display.width(), display.height(), 0, 0, 640, srcHeight, frame.frozenTop.data() );
+                if ( castle3DSStack.back().nativeDual ) {
+                    for ( int y = 0; y < 240; ++y )
+                        std::copy_n( display.image() + y * display.width(), std::min<int32_t>( 400, display.width() ),
+                                     frame.frozenTop.data() + y * 400 );
+                }
+                else {
+                    const int srcHeight = castle3DSStack.back().fullTop ? 480 : 256;
+                    threeDS::copyScaledIndexed( display.image(), display.width(), display.height(), 0, 0, 640, srcHeight, frame.frozenTop.data() );
+                }
             }
             else {
                 // The unchanged city screen is currently letterboxed at half size.
