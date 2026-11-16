@@ -766,6 +766,10 @@ void Kingdom::openOverviewDialog()
 
     fheroes2::Display & display = fheroes2::Display::instance();
 
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSCastleView kingdomOverview3DS( true );
+#endif
+
     // setup cursor
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 

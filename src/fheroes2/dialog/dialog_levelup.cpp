@@ -21,6 +21,7 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include <array>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,6 +40,7 @@
 #include "skill.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_dialog.h"
 #include "ui_language.h"
@@ -80,6 +82,92 @@ namespace
 
     int DialogSelectSecondary( const std::string & name, const int primarySkillType, const Skill::Secondary & sec1, const Skill::Secondary & sec2, Heroes & hero )
     {
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Scope3DSNativeDialog nativeScope( false );
+        fheroes2::set3DSDialogCancelable( false );
+        const CursorRestorer cursorRestorer( true, Cursor::POINTER );
+        fheroes2::Display & display = fheroes2::Display::instance();
+        const Settings & conf = Settings::Get();
+
+        const fheroes2::SecondarySkillDialogElement skillLeft{ sec1, hero };
+        const fheroes2::SecondarySkillDialogElement skillRight{ sec2, hero };
+
+        fheroes2::draw3DSPanel( { 0, 240, 320, 240 } );
+
+        std::string hdr = _( "%{name} +1 %{skill}" );
+        StringReplace( hdr, "%{name}", name );
+        StringReplace( hdr, "%{skill}", Skill::Primary::String( primarySkillType ) );
+        fheroes2::Text hdrTxt( std::move( hdr ), fheroes2::FontType::normalYellow() );
+        if ( hdrTxt.width() > 280 ) {
+            hdrTxt.fitToOneRow( 280 );
+        }
+        hdrTxt.draw( ( 320 - hdrTxt.width() ) / 2, 251, display );
+
+        const uint8_t insetBg = fheroes2::GetColorId( 0x24, 0x14, 0x0A );
+        const uint8_t insetGold = fheroes2::GetColorId( 0xC0, 0x94, 0x34 );
+
+        const fheroes2::Rect card1( 18, 274, 136, 118 );
+        const fheroes2::Rect card2( 166, 274, 136, 118 );
+        auto drawSkillCard = [&]( const fheroes2::Rect & card, const fheroes2::SecondarySkillDialogElement & el, const Skill::Secondary & sec ) -> fheroes2::Rect {
+            fheroes2::Fill( display, card.x, card.y, card.width, card.height, insetBg );
+            fheroes2::DrawRect( display, card, insetGold );
+            const fheroes2::Point iconPos{ card.x + ( card.width - el.area().width ) / 2, card.y + 8 };
+            el.draw( display, iconPos );
+            const fheroes2::Text sTxt( sec.GetName(), fheroes2::FontType::smallYellow() );
+            sTxt.draw( card.x + 6, iconPos.y + el.area().height + 6, card.width - 12, display );
+            return { iconPos.x, iconPos.y, el.area().width, el.area().height };
+        };
+
+        const fheroes2::Rect skillLeftRoi = drawSkillCard( card1, skillLeft, sec1 );
+        const fheroes2::Rect skillRightRoi = drawSkillCard( card2, skillRight, sec2 );
+
+        const fheroes2::Text countTxt{ std::to_string( hero.GetSecondarySkills().Count() ) + "/" + std::to_string( Heroes::maxNumOfSecSkills ),
+                                       fheroes2::FontType::smallWhite() };
+        countTxt.draw( ( 320 - countTxt.width() ) / 2, 398, display );
+
+        fheroes2::ButtonSprite btnLearn1 = fheroes2::make3DSButton( _( "Learn" ), { 18, 420, 108, 30 } );
+        fheroes2::ButtonSprite btnHero = fheroes2::make3DSButton( _( "Hero" ), { 132, 420, 56, 30 } );
+        fheroes2::ButtonSprite btnLearn2 = fheroes2::make3DSButton( _( "Learn" ), { 194, 420, 108, 30 } );
+
+        const std::array<const fheroes2::ButtonBase *, 3> focusBtns = { &btnLearn1, &btnHero, &btnLearn2 };
+        btnLearn1.draw();
+        btnHero.draw();
+        btnLearn2.draw();
+        fheroes2::set3DSDialogFocus( &btnLearn1 );
+        btnLearn1.draw();
+        const void * lastFocus = fheroes2::get3DSDialogFocus();
+
+        display.render();
+        LocalEvent & le = LocalEvent::Get();
+        le.reset();
+
+        while ( le.HandleEvents() ) {
+            fheroes2::sync3DSDialogFocus( lastFocus, focusBtns.data(), focusBtns.size() );
+            btnLearn1.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnLearn1.area() ) );
+            btnHero.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnHero.area() ) );
+            btnLearn2.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnLearn2.area() ) );
+
+            if ( le.MouseClickLeft( btnLearn1.area() ) ) {
+                return sec1.Skill();
+            }
+            if ( le.MouseClickLeft( btnLearn2.area() ) ) {
+                return sec2.Skill();
+            }
+            if ( le.MouseClickLeft( btnHero.area() ) ) {
+                le.reset();
+                hero.OpenDialog( false, true, true, true, true, false, fheroes2::getLanguageFromAbbreviation( conf.getGameLanguage() ) );
+                display.render();
+                continue;
+            }
+            if ( le.MouseClickLeft( skillLeftRoi ) ) {
+                skillLeft.showPopup( Dialog::OK );
+            }
+            else if ( le.MouseClickLeft( skillRightRoi ) ) {
+                skillRight.showPopup( Dialog::OK );
+            }
+        }
+        return Skill::Secondary::UNKNOWN;
+#else
         const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 
         std::string header = _( "%{name} has gained a level.\n\n%{skill} +1" );
@@ -207,6 +295,7 @@ namespace
         }
 
         return Skill::Secondary::UNKNOWN;
+#endif
     }
 }
 

@@ -22,6 +22,7 @@
  ***************************************************************************/
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -45,6 +46,7 @@
 #include "settings.h"
 #include "tools.h"
 #include "translations.h"
+#include "ui_3ds.h"
 #include "ui_button.h"
 #include "ui_kingdom.h"
 #include "ui_scrollbar.h"
@@ -339,10 +341,326 @@ namespace
         // gold
         RedrawResourceSprite2( Assets::getImage( tradpost, 13 ), pt.x + 37, pt.y + 74, showcost, kingdom, from_resource, Resource::GOLD, tradingPost );
     }
+
+#if defined( TARGET_NINTENDO_3DS )
+    void marketplace3DS( Kingdom & kingdom, const bool fromTradingPost )
+    {
+        const fheroes2::Scope3DSNativeDialog nativeScope( false );
+        const CursorRestorer cursorRestorer( true, Cursor::POINTER );
+
+        fheroes2::Display & display = fheroes2::Display::instance();
+        LocalEvent & le = LocalEvent::Get();
+        const Settings & conf = Settings::Get();
+
+        const bool isGiftDisabled = ( std::count_if( conf.GetPlayers().begin(), conf.GetPlayers().end(),
+                                                     []( const Player * player ) {
+                                                         return player != nullptr && world.GetKingdom( player->GetColor() ).isPlay();
+                                                     } )
+                                      < 2 );
+
+        const std::array<int, 7> resourceOrder = {
+            Resource::WOOD, Resource::MERCURY, Resource::ORE, Resource::SULFUR, Resource::CRYSTAL, Resource::GEMS, Resource::GOLD,
+        };
+
+        auto cellRect = []( const int32_t gridX, const size_t idx ) -> fheroes2::Rect {
+            if ( idx < 4 ) {
+                return { gridX + static_cast<int32_t>( idx ) * 33, 279, 31, 34 };
+            }
+            return { gridX + 16 + static_cast<int32_t>( idx - 4 ) * 33, 316, 31, 34 };
+        };
+
+        std::array<fheroes2::Rect, 7> rectsFrom{};
+        std::array<fheroes2::Rect, 7> rectsTo{};
+        for ( size_t i = 0; i < 7; ++i ) {
+            rectsFrom[i] = cellRect( 17, i );
+            rectsTo[i] = cellRect( 171, i );
+        }
+
+        int resourceFrom = Resource::UNKNOWN;
+        int resourceTo = Resource::UNKNOWN;
+        uint32_t seek = 0;
+
+        auto computeTradeBounds = [&]( uint32_t & outCost, uint32_t & outMaxUnits ) {
+            outCost = 0;
+            outMaxUnits = 0;
+            if ( resourceFrom == Resource::UNKNOWN || resourceTo == Resource::UNKNOWN || resourceFrom == resourceTo ) {
+                return;
+            }
+            outCost = GetTradeCosts( kingdom, resourceFrom, resourceTo, fromTradingPost );
+            if ( outCost == 0 ) {
+                return;
+            }
+            const uint32_t stock = kingdom.GetFunds().Get( resourceFrom );
+            outMaxUnits = ( resourceTo == Resource::GOLD ) ? stock : ( stock / outCost );
+        };
+
+        fheroes2::ButtonSprite btnMinus = fheroes2::make3DSButton( "-", { 22, 381, 32, 24 } );
+        fheroes2::ButtonSprite btnMin = fheroes2::make3DSButton( _( "MIN" ), { 58, 381, 42, 24 } );
+        fheroes2::ButtonSprite btnPlus = fheroes2::make3DSButton( "+", { 216, 381, 32, 24 } );
+        fheroes2::ButtonSprite btnMax = fheroes2::make3DSButton( _( "MAX" ), { 252, 381, 46, 24 } );
+
+        fheroes2::ButtonSprite btnTrade = fheroes2::make3DSButton( _( "Trade" ), { 16, 422, 92, 30 } );
+        fheroes2::ButtonSprite btnGift = fheroes2::make3DSButton( _( "Gift" ), { 114, 422, 92, 30 } );
+        fheroes2::ButtonSprite btnExit = fheroes2::make3DSButton( _( "Exit" ), { 212, 422, 92, 30 } );
+
+        const auto formatAmt = []( const int32_t v ) -> std::string {
+            if ( v >= 10000 ) {
+                return std::to_string( v / 1000 ) + 'K';
+            }
+            return std::to_string( v );
+        };
+
+        const auto drawResGridCell = [&]( const fheroes2::Rect & box, const int resType, const std::string & subLabel, const bool selected ) {
+            const uint8_t bg = selected ? fheroes2::GetColorId( 0x3A, 0x26, 0x10 ) : fheroes2::GetColorId( 0x22, 0x12, 0x08 );
+            const uint8_t frame = selected ? fheroes2::GetColorId( 0xFF, 0xEA, 0x40 ) : fheroes2::GetColorId( 0x9C, 0x74, 0x24 );
+            fheroes2::Fill( display, box.x, box.y, box.width, box.height, bg );
+            fheroes2::DrawRect( display, box, frame );
+            if ( selected ) {
+                fheroes2::DrawRect( display, { box.x + 1, box.y + 1, box.width - 2, box.height - 2 }, fheroes2::GetColorId( 0xC8, 0x90, 0x18 ) );
+            }
+
+            const fheroes2::Sprite & icon = Assets::getImage( ICN::RESOURCE, Resource::getIconIcnIndex( resType ) );
+            if ( !icon.empty() && icon.width() > 0 && icon.height() > 0 ) {
+                const int32_t maxW = 24;
+                const int32_t maxH = 17;
+                const double scale = std::min( { 1.0, static_cast<double>( maxW ) / icon.width(), static_cast<double>( maxH ) / icon.height() } );
+                const int32_t dw = std::max<int32_t>( 1, static_cast<int32_t>( icon.width() * scale ) );
+                const int32_t dh = std::max<int32_t>( 1, static_cast<int32_t>( icon.height() * scale ) );
+                fheroes2::Image scaled( dw, dh );
+                scaled.reset();
+                fheroes2::Resize( icon, scaled );
+                fheroes2::Blit( scaled, display, box.x + ( box.width - dw ) / 2, box.y + 3 + ( maxH - dh ) / 2 );
+            }
+
+            const fheroes2::Text sub( subLabel, selected ? fheroes2::FontType::smallYellow() : fheroes2::FontType::smallWhite() );
+            sub.draw( box.x + ( box.width - sub.width() ) / 2, box.y + 22, display );
+        };
+
+        auto renderAll = [&]() {
+            fheroes2::draw3DSPanel( { 0, 240, 320, 240 } );
+            const fheroes2::Text hdr( fromTradingPost ? _( "Trading Post" ) : _( "Marketplace" ), fheroes2::FontType::normalYellow() );
+            hdr.draw( ( 320 - hdr.width() ) / 2, 249, display );
+
+            const fheroes2::Text sellHdr( _( "Sell" ), fheroes2::FontType::smallYellow() );
+            sellHdr.draw( 17 + ( 130 - sellHdr.width() ) / 2, 266, display );
+
+            const fheroes2::Text buyHdr( _( "Buy" ), fheroes2::FontType::smallYellow() );
+            buyHdr.draw( 171 + ( 130 - buyHdr.width() ) / 2, 266, display );
+
+            fheroes2::DrawLine( display, { 160, 266 }, { 160, 350 }, fheroes2::GetColorId( 0x9C, 0x74, 0x24 ) );
+
+            const Funds funds = kingdom.GetFunds();
+            for ( size_t i = 0; i < 7; ++i ) {
+                const int res = resourceOrder[i];
+                drawResGridCell( rectsFrom[i], res, formatAmt( funds.Get( res ) ), resourceFrom == res );
+
+                std::string rateStr = "--";
+                if ( resourceFrom != Resource::UNKNOWN ) {
+                    if ( resourceFrom == res ) {
+                        rateStr = _( "n/a" );
+                    }
+                    else {
+                        const uint32_t cost = GetTradeCosts( kingdom, resourceFrom, res, fromTradingPost );
+                        rateStr = ( res == Resource::GOLD ) ? ( "x" + formatAmt( cost ) ) : ( formatAmt( cost ) + ":1" );
+                    }
+                }
+                drawResGridCell( rectsTo[i], res, rateStr, resourceTo == res );
+            }
+
+            // Middle trade bar
+            const fheroes2::Rect bar( 16, 357, 288, 56 );
+            fheroes2::Fill( display, bar.x, bar.y, bar.width, bar.height, fheroes2::GetColorId( 0x22, 0x12, 0x08 ) );
+            fheroes2::DrawRect( display, bar, fheroes2::GetColorId( 0xC0, 0x94, 0x34 ) );
+
+            uint32_t tradeCost = 0;
+            uint32_t maxUnits = 0;
+            computeTradeBounds( tradeCost, maxUnits );
+
+            if ( tradeCost > 0 ) {
+                const uint32_t countSell = seek * ( resourceTo == Resource::GOLD ? 1U : tradeCost );
+                const uint32_t countBuy = seek * ( resourceTo == Resource::GOLD ? tradeCost : 1U );
+                const std::string summary = std::to_string( countSell ) + ' ' + Resource::String( resourceFrom ) + "  ->  "
+                                            + std::to_string( countBuy ) + ' ' + Resource::String( resourceTo );
+                fheroes2::Text sumTxt( summary, fheroes2::FontType::smallYellow() );
+                if ( sumTxt.width() > 276 ) {
+                    sumTxt.fitToOneRow( 276 );
+                }
+                sumTxt.draw( bar.x + ( bar.width - sumTxt.width() ) / 2, bar.y + 6, display );
+
+                const fheroes2::Text seekTxt( std::to_string( seek ) + " / " + std::to_string( maxUnits ), fheroes2::FontType::smallWhite() );
+                seekTxt.draw( 104 + ( 108 - seekTxt.width() ) / 2, 388, display );
+
+                seek > 0 ? btnMinus.enable() : btnMinus.disable();
+                ( maxUnits > 0 && seek != 1 ) ? btnMin.enable() : btnMin.disable();
+                seek < maxUnits ? btnPlus.enable() : btnPlus.disable();
+                ( maxUnits > 0 && seek < maxUnits ) ? btnMax.enable() : btnMax.disable();
+
+                btnMinus.draw();
+                btnMin.draw();
+                btnPlus.draw();
+                btnMax.draw();
+
+                seek > 0 ? btnTrade.enable() : btnTrade.disable();
+            }
+            else {
+                btnMinus.disable();
+                btnMin.disable();
+                btnPlus.disable();
+                btnMax.disable();
+                fheroes2::unregister3DSDialogButton( &btnMinus );
+                fheroes2::unregister3DSDialogButton( &btnMin );
+                fheroes2::unregister3DSDialogButton( &btnPlus );
+                fheroes2::unregister3DSDialogButton( &btnMax );
+                btnTrade.disable();
+
+                const char * msg = ( resourceFrom != Resource::UNKNOWN && resourceFrom == resourceTo )
+                                       ? _( "Choose different Sell and Buy resources." )
+                                       : _( "Tap Sell (left) and Buy (right) resources." );
+                const fheroes2::Text hint( msg, fheroes2::FontType::smallWhite() );
+                hint.draw( bar.x + ( bar.width - hint.width() ) / 2, bar.y + 22, display );
+            }
+
+            isGiftDisabled ? btnGift.disable() : btnGift.enable();
+            btnTrade.draw();
+            btnGift.draw();
+            btnExit.draw();
+        };
+
+        renderAll();
+        fheroes2::set3DSDialogFocus( &btnExit );
+        btnExit.draw();
+        const void * lastFocus = fheroes2::get3DSDialogFocus();
+
+        display.render();
+        le.reset();
+
+        while ( le.HandleEvents() ) {
+            std::vector<const fheroes2::ButtonBase *> focusBtns;
+            if ( btnTrade.isEnabled() ) {
+                focusBtns.push_back( &btnTrade );
+            }
+            if ( btnGift.isEnabled() ) {
+                focusBtns.push_back( &btnGift );
+            }
+            focusBtns.push_back( &btnExit );
+            if ( btnMinus.isEnabled() ) {
+                focusBtns.push_back( &btnMinus );
+            }
+            if ( btnMin.isEnabled() ) {
+                focusBtns.push_back( &btnMin );
+            }
+            if ( btnPlus.isEnabled() ) {
+                focusBtns.push_back( &btnPlus );
+            }
+            if ( btnMax.isEnabled() ) {
+                focusBtns.push_back( &btnMax );
+            }
+            fheroes2::sync3DSDialogFocus( lastFocus, focusBtns.data(), focusBtns.size() );
+
+            if ( btnTrade.isEnabled() ) {
+                btnTrade.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnTrade.area() ) );
+            }
+            if ( btnGift.isEnabled() ) {
+                btnGift.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnGift.area() ) );
+            }
+            btnExit.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnExit.area() ) );
+            if ( btnMinus.isEnabled() ) {
+                btnMinus.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnMinus.area() ) );
+            }
+            if ( btnMin.isEnabled() ) {
+                btnMin.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnMin.area() ) );
+            }
+            if ( btnPlus.isEnabled() ) {
+                btnPlus.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnPlus.area() ) );
+            }
+            if ( btnMax.isEnabled() ) {
+                btnMax.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( btnMax.area() ) );
+            }
+
+            if ( le.MouseClickLeft( btnExit.area() ) || Game::HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL )
+                 || le.isKeyPressed( fheroes2::Key::KEY_ESCAPE ) ) {
+                break;
+            }
+
+            bool needRedraw = false;
+
+            if ( btnGift.isEnabled() && le.MouseClickLeft( btnGift.area() ) ) {
+                {
+                    const fheroes2::Scope3DSStandardLayout giftScope;
+                    if ( Dialog::MakeGiftResource( kingdom ) == Dialog::OK ) {
+                        resourceFrom = Resource::UNKNOWN;
+                        resourceTo = Resource::UNKNOWN;
+                        seek = 0;
+                    }
+                    le.reset();
+                }
+                needRedraw = true;
+            }
+
+            for ( size_t i = 0; i < 7; ++i ) {
+                if ( le.MouseClickLeft( rectsFrom[i] ) ) {
+                    resourceFrom = resourceOrder[i];
+                    seek = 0;
+                    needRedraw = true;
+                }
+                else if ( le.MouseClickLeft( rectsTo[i] ) ) {
+                    resourceTo = resourceOrder[i];
+                    seek = 0;
+                    needRedraw = true;
+                }
+            }
+
+            uint32_t tradeCost = 0;
+            uint32_t maxUnits = 0;
+            computeTradeBounds( tradeCost, maxUnits );
+
+            if ( tradeCost > 0 ) {
+                if ( btnMinus.isEnabled() && le.MouseClickLeft( btnMinus.area() ) && seek > 0 ) {
+                    --seek;
+                    needRedraw = true;
+                }
+                else if ( btnPlus.isEnabled() && le.MouseClickLeft( btnPlus.area() ) && seek < maxUnits ) {
+                    ++seek;
+                    needRedraw = true;
+                }
+                else if ( btnMin.isEnabled() && le.MouseClickLeft( btnMin.area() ) && maxUnits > 0 ) {
+                    seek = 1;
+                    needRedraw = true;
+                }
+                else if ( btnMax.isEnabled() && le.MouseClickLeft( btnMax.area() ) && seek < maxUnits ) {
+                    seek = maxUnits;
+                    needRedraw = true;
+                }
+                else if ( btnTrade.isEnabled() && seek > 0 && le.MouseClickLeft( btnTrade.area() ) ) {
+                    const uint32_t countSell = seek * ( resourceTo == Resource::GOLD ? 1U : tradeCost );
+                    const uint32_t countBuy = seek * ( resourceTo == Resource::GOLD ? tradeCost : 1U );
+                    kingdom.OddFundsResource( Funds( resourceFrom, countSell ) );
+                    kingdom.AddFundsResource( Funds( resourceTo, countBuy ) );
+                    seek = 0;
+                    needRedraw = true;
+                }
+            }
+
+            if ( needRedraw ) {
+                renderAll();
+                if ( btnTrade.isEnabled() && fheroes2::get3DSDialogFocus() == &btnExit ) {
+                    fheroes2::set3DSDialogFocus( &btnTrade );
+                    btnTrade.draw();
+                    btnExit.draw();
+                }
+                display.render();
+            }
+        }
+    }
+#endif
 }
 
 void Dialog::Marketplace( Kingdom & kingdom, bool fromTradingPost )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    marketplace3DS( kingdom, fromTradingPost );
+    return;
+#endif
     fheroes2::Display & display = fheroes2::Display::instance();
 
     const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
