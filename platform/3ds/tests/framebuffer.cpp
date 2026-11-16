@@ -91,14 +91,16 @@ int main()
     assert( pixel( top, 40, 0 ) == 0 && pixel( bottom, 0, 0 ) == 0 );
 
     // Castle main split: 640x256 panorama stretches across the 400x240 top screen,
-    // while 640x224 army/controls strip (y >= 256) maps to the 320x240 bottom screen.
-    const CastleFrame castleMain{ true, false };
+    // while 552x204 army/portraits strip maps above a 320x48 native footer.
+    std::vector<uint8_t> footer( 320 * 48, 3 );
+    const CastleFrame castleMain{ true, false, footer.data(), 320, 48 };
     renderFramebuffers( image.data(), 640, 480, palette, top.data() + 1, bottom.data() + 1, false, nullptr, nullptr, nullptr, &castleMain );
-    assert( pixel( top, 0, 0 ) == 0x112233 && pixel( top, 398, 0 ) == 0x112233 );
-    assert( pixel( bottom, 0, 0 ) == 0xABCDEF && pixel( bottom, 159, 239 ) != 0 );
+    assert( pixel( top, 0, 0 ) == 0x112233 && pixel( top, 399, 239 ) == 0xABCDEF );
+    assert( pixel( bottom, 0, 0 ) == 0xABCDEF && pixel( bottom, 319, 191 ) == 0xABCDEF );
+    assert( pixel( bottom, 0, 192 ) == 0x010203 && pixel( bottom, 319, 239 ) == 0x010203 );
 
     // Castle sub-screen: 640x480 canvas scales across the full 400x240 top screen.
-    const CastleFrame castleSub{ false, true };
+    const CastleFrame castleSub{ false, true, nullptr, 0, 0 };
     renderFramebuffers( image.data(), 640, 480, palette, top.data() + 1, bottom.data() + 1, false, nullptr, nullptr, nullptr, &castleSub );
     assert( pixel( top, 0, 0 ) == 0x112233 && pixel( top, 399, 239 ) == 0xABCDEF );
     assert( pixel( bottom, 0, 0 ) == 0 && pixel( bottom, 319, 239 ) == 0 );

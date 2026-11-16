@@ -57,6 +57,9 @@ namespace fheroes2::threeDS
     {
         bool mainView{ false };
         bool fullTop{ false };
+        const uint8_t * footer{ nullptr };
+        int footerWidth{ 0 };
+        int footerHeight{ 0 };
     };
 
     struct DialogFrame
@@ -124,66 +127,114 @@ namespace fheroes2::threeDS
                 }
             }
         };
-        const auto copyNative
-            = [&]( uint8_t * output, const int sourceX, const int sourceY, const int width, const int height, const int destinationY, const uint8_t * source ) {
-                  for ( int x = 0; x < width; ++x ) {
-                      for ( int y = 0; y < height && y + destinationY < 240; ++y ) {
-                          const int sx = sourceX + x;
-                          const int sy = sourceY + y;
-                          if ( sx < 0 || sy < 0 || sx >= imageWidth || sy >= imageHeight )
-                              continue;
-                          const auto color = palette[source[static_cast<size_t>( sy ) * imageWidth + sx]];
-                          const size_t offset = static_cast<size_t>( x * 240 + 239 - y - destinationY ) * 3;
-                          output[offset] = static_cast<uint8_t>( color );
-                          output[offset + 1] = static_cast<uint8_t>( color >> 8 );
-                          output[offset + 2] = static_cast<uint8_t>( color >> 16 );
-                      }
-                  }
-              };
-        const auto copyScaledBilinear = [&]( uint8_t * output, const int dstWidth, const int dstHeight, const int srcX, const int srcY, const int srcWidth,
-                                             const int srcHeight ) {
+        const auto copyNative = [&]( uint8_t * output, const int sourceX, const int sourceY, const int width, const int height, const int destinationY,
+                                     const uint8_t * source, const int sourceStride, const int sourceHeight ) {
+            for ( int x = 0; x < width; ++x ) {
+                const int sx = sourceX + x;
+                if ( sx < 0 || sx >= sourceStride )
+                    continue;
+                for ( int y = 0; y < height && y + destinationY < 240; ++y ) {
+                    const int sy = sourceY + y;
+                    if ( sy < 0 || sy >= sourceHeight )
+                        continue;
+                    const auto color = palette[source[static_cast<size_t>( sy ) * sourceStride + sx]];
+                    const size_t offset = static_cast<size_t>( x * 240 + 239 - y - destinationY ) * 3;
+                    output[offset] = static_cast<uint8_t>( color );
+                    output[offset + 1] = static_cast<uint8_t>( color >> 8 );
+                    output[offset + 2] = static_cast<uint8_t>( color >> 16 );
+                }
+            }
+        };
+        const auto copyScaledFast = [&]( uint8_t * output, const int dstWidth, const int dstHeight, const int dstY, const int srcX, const int srcY,
+                                         const int srcWidth, const int srcHeight ) {
             if ( srcWidth <= 0 || srcHeight <= 0 || dstWidth <= 0 || dstHeight <= 0 )
                 return;
+            std::array<int, 400> sx{};
+            std::array<const uint8_t *, 240> rows{};
+            for ( int x = 0; x < dstWidth; ++x )
+                sx[x] = std::clamp( srcX + ( 2 * x + 1 ) * srcWidth / ( 2 * dstWidth ), 0, imageWidth - 1 );
             for ( int y = 0; y < dstHeight; ++y ) {
-                const int64_t yFp = std::clamp<int64_t>( ( ( 2LL * y + 1 ) * srcHeight * 256 ) / ( 2LL * dstHeight ) - 128, 0,
-                                                         static_cast<int64_t>( srcHeight - 1 ) * 256 );
-                const int y0 = std::clamp( srcY + static_cast<int>( yFp >> 8 ), 0, imageHeight - 1 );
-                const int y1 = std::clamp( srcY + std::min( static_cast<int>( yFp >> 8 ) + 1, srcHeight - 1 ), 0, imageHeight - 1 );
-                const uint32_t wy = static_cast<uint32_t>( yFp & 255 );
-                const uint32_t invWy = 256 - wy;
-                const uint8_t * row0 = image + static_cast<size_t>( y0 ) * imageWidth;
-                const uint8_t * row1 = image + static_cast<size_t>( y1 ) * imageWidth;
-
-                for ( int x = 0; x < dstWidth; ++x ) {
-                    const int64_t xFp = std::clamp<int64_t>( ( ( 2LL * x + 1 ) * srcWidth * 256 ) / ( 2LL * dstWidth ) - 128, 0,
-                                                             static_cast<int64_t>( srcWidth - 1 ) * 256 );
-                    const int x0 = std::clamp( srcX + static_cast<int>( xFp >> 8 ), 0, imageWidth - 1 );
-                    const int x1 = std::clamp( srcX + std::min( static_cast<int>( xFp >> 8 ) + 1, srcWidth - 1 ), 0, imageWidth - 1 );
-                    const uint32_t wx = static_cast<uint32_t>( xFp & 255 );
-                    const uint32_t invWx = 256 - wx;
-
-                    const uint32_t c00 = palette[row0[x0]];
-                    const uint32_t c10 = palette[row0[x1]];
-                    const uint32_t c01 = palette[row1[x0]];
-                    const uint32_t c11 = palette[row1[x1]];
-
-                    const size_t offset = static_cast<size_t>( x * 240 + 239 - y ) * 3;
-                    for ( int ch = 0; ch < 3; ++ch ) {
-                        const int shift = ch * 8;
-                        const uint32_t p00 = ( c00 >> shift ) & 0xFF;
-                        const uint32_t p10 = ( c10 >> shift ) & 0xFF;
-                        const uint32_t p01 = ( c01 >> shift ) & 0xFF;
-                        const uint32_t p11 = ( c11 >> shift ) & 0xFF;
-                        const uint32_t topRow = p00 * invWx + p10 * wx;
-                        const uint32_t botRow = p01 * invWx + p11 * wx;
-                        output[offset + ch] = static_cast<uint8_t>( ( topRow * invWy + botRow * wy + 32768 ) >> 16 );
-                    }
+                const int sy = std::clamp( srcY + ( 2 * y + 1 ) * srcHeight / ( 2 * dstHeight ), 0, imageHeight - 1 );
+                rows[y] = image + static_cast<size_t>( sy ) * imageWidth;
+            }
+            for ( int x = 0; x < dstWidth; ++x ) {
+                const int col = sx[x];
+                uint8_t * dst = output + static_cast<size_t>( x * 240 + 239 - dstY ) * 3;
+                for ( int y = 0; y < dstHeight && y + dstY < 240; ++y, dst -= 3 ) {
+                    const uint32_t color = palette[rows[y][col]];
+                    dst[0] = static_cast<uint8_t>( color );
+                    dst[1] = static_cast<uint8_t>( color >> 8 );
+                    dst[2] = static_cast<uint8_t>( color >> 16 );
+                }
+            }
+        };
+        const auto copyScaledAvgX = [&]( uint8_t * output, const int dstWidth, const int dstHeight, const int dstY, const int srcX, const int srcY,
+                                         const int srcWidth, const int srcHeight ) {
+            if ( srcWidth <= 0 || srcHeight <= 0 || dstWidth <= 0 || dstHeight <= 0 )
+                return;
+            std::array<int, 400> x0{};
+            std::array<int, 400> x1{};
+            std::array<const uint8_t *, 240> rows{};
+            for ( int x = 0; x < dstWidth; ++x ) {
+                const int p0 = std::clamp( ( 2 * x * srcWidth ) / ( 2 * dstWidth ), 0, srcWidth - 1 );
+                const int p1 = std::clamp( ( ( 2 * x + 1 ) * srcWidth ) / ( 2 * dstWidth ), 0, srcWidth - 1 );
+                x0[x] = std::clamp( srcX + p0, 0, imageWidth - 1 );
+                x1[x] = std::clamp( srcX + p1, 0, imageWidth - 1 );
+            }
+            for ( int y = 0; y < dstHeight; ++y ) {
+                const int sy = std::clamp( srcY + ( 2 * y + 1 ) * srcHeight / ( 2 * dstHeight ), 0, imageHeight - 1 );
+                rows[y] = image + static_cast<size_t>( sy ) * imageWidth;
+            }
+            for ( int x = 0; x < dstWidth; ++x ) {
+                const int col0 = x0[x];
+                const int col1 = x1[x];
+                uint8_t * dst = output + static_cast<size_t>( x * 240 + 239 - dstY ) * 3;
+                for ( int y = 0; y < dstHeight && y + dstY < 240; ++y, dst -= 3 ) {
+                    const uint32_t c0 = palette[rows[y][col0]];
+                    const uint32_t c1 = palette[rows[y][col1]];
+                    const uint32_t avg = ( c0 & c1 ) + ( ( ( c0 ^ c1 ) & 0xFEFEFEu ) >> 1 );
+                    dst[0] = static_cast<uint8_t>( avg );
+                    dst[1] = static_cast<uint8_t>( avg >> 8 );
+                    dst[2] = static_cast<uint8_t>( avg >> 16 );
+                }
+            }
+        };
+        const auto copyScaledFull = [&]( uint8_t * output, const int dstWidth, const int dstHeight, const int srcWidth, const int srcHeight ) {
+            if ( srcWidth <= 0 || srcHeight <= 0 || dstWidth <= 0 || dstHeight <= 0 )
+                return;
+            std::array<int, 400> x0{};
+            std::array<int, 400> x1{};
+            std::array<const uint8_t *, 240> rows0{};
+            std::array<const uint8_t *, 240> rows1{};
+            for ( int x = 0; x < dstWidth; ++x ) {
+                x0[x] = std::clamp( ( 2 * x * srcWidth ) / ( 2 * dstWidth ), 0, imageWidth - 1 );
+                x1[x] = std::clamp( ( ( 2 * x + 1 ) * srcWidth ) / ( 2 * dstWidth ), 0, imageWidth - 1 );
+            }
+            for ( int y = 0; y < dstHeight; ++y ) {
+                const int sy0 = std::clamp( ( 2 * y * srcHeight ) / ( 2 * dstHeight ), 0, imageHeight - 1 );
+                const int sy1 = std::clamp( ( ( 2 * y + 1 ) * srcHeight ) / ( 2 * dstHeight ), 0, imageHeight - 1 );
+                rows0[y] = image + static_cast<size_t>( sy0 ) * imageWidth;
+                rows1[y] = image + static_cast<size_t>( sy1 ) * imageWidth;
+            }
+            for ( int x = 0; x < dstWidth; ++x ) {
+                const int col0 = x0[x];
+                const int col1 = x1[x];
+                uint8_t * dst = output + static_cast<size_t>( x * 240 + 239 ) * 3;
+                for ( int y = 0; y < dstHeight; ++y, dst -= 3 ) {
+                    const uint32_t topAvg = ( palette[rows0[y][col0]] & palette[rows0[y][col1]] )
+                                            + ( ( ( palette[rows0[y][col0]] ^ palette[rows0[y][col1]] ) & 0xFEFEFEu ) >> 1 );
+                    const uint32_t botAvg = ( palette[rows1[y][col0]] & palette[rows1[y][col1]] )
+                                            + ( ( ( palette[rows1[y][col0]] ^ palette[rows1[y][col1]] ) & 0xFEFEFEu ) >> 1 );
+                    const uint32_t avg = ( topAvg & botAvg ) + ( ( ( topAvg ^ botAvg ) & 0xFEFEFEu ) >> 1 );
+                    dst[0] = static_cast<uint8_t>( avg );
+                    dst[1] = static_cast<uint8_t>( avg >> 8 );
+                    dst[2] = static_cast<uint8_t>( avg >> 16 );
                 }
             }
         };
         if ( dialog && dialog->frozenTop ) {
             if ( dialog->topOverlay )
-                copyNative( top, 0, 0, 400, 240, 0, image );
+                copyNative( top, 0, 0, 400, 240, 0, image, imageWidth, imageHeight );
             else
                 for ( int x = 0; x < 400; ++x )
                     for ( int y = 0; y < 240; ++y ) {
@@ -205,7 +256,7 @@ namespace fheroes2::threeDS
                             top[offset + channel] = static_cast<uint8_t>( static_cast<unsigned>( top[offset + channel] ) * 55 / 100 );
                     }
             }
-            copyNative( bottom, dialog->cropX, dialog->cropY, 320, 240, 0, image );
+            copyNative( bottom, dialog->cropX, dialog->cropY, 320, 240, 0, image, imageWidth, imageHeight );
         }
         else if ( battle && ( battle->nativeView || battle->modalSnapshot ) ) {
             if ( battle->nativeView ) {
@@ -227,17 +278,26 @@ namespace fheroes2::threeDS
             // canvas. Present its left and right halves in two native rows.
             const auto * footer = battle->nativeView ? image : battle->modalSnapshot;
             const int height = std::clamp( battle->footerHeight, 1, 120 );
-            copyNative( bottom, 0, battle->footerY, 320, height, 0, footer );
-            copyNative( bottom, 320, battle->footerY, 320, height, height, footer );
+            copyNative( bottom, 0, battle->footerY, 320, height, 0, footer, imageWidth, imageHeight );
+            copyNative( bottom, 320, battle->footerY, 320, height, height, footer, imageWidth, imageHeight );
         }
         else if ( castle && castle->mainView ) {
-            copyScaledBilinear( top, 400, 240, 0, 0, std::min( imageWidth, 640 ), std::min( imageHeight, 256 ) );
+            copyScaledFast( top, 400, 240, 0, 0, 0, std::min( imageWidth, 640 ), std::min( imageHeight, 256 ) );
             if ( imageHeight > 256 ) {
-                copyScaledBilinear( bottom, 320, 240, 0, 256, std::min( imageWidth, 640 ), std::min( imageHeight - 256, 224 ) );
+                const int armyWidth = std::min( imageWidth, 552 );
+                const int armyHeight = std::min( imageHeight - 256, 204 );
+                if ( castle->footer && castle->footerWidth == 320 && castle->footerHeight > 0 && castle->footerHeight < 240 ) {
+                    const int splitY = 240 - castle->footerHeight;
+                    copyScaledAvgX( bottom, 320, splitY, 0, 0, 256, armyWidth, armyHeight );
+                    copyNative( bottom, 0, 0, 320, castle->footerHeight, splitY, castle->footer, castle->footerWidth, castle->footerHeight );
+                }
+                else {
+                    copyScaledAvgX( bottom, 320, 240, 0, 0, 256, armyWidth, armyHeight );
+                }
             }
         }
         else if ( castle && castle->fullTop ) {
-            copyScaledBilinear( top, 400, 240, 0, 0, std::min( imageWidth, 640 ), std::min( imageHeight, 480 ) );
+            copyScaledFull( top, 400, 240, std::min( imageWidth, 640 ), std::min( imageHeight, 480 ) );
         }
         else if ( adventure ) {
             copy( top, 400, 0, 1, 0, image );

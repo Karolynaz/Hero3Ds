@@ -1472,6 +1472,10 @@ namespace fheroes2
         unsigned baseline{ 0 };
     };
     static std::vector<Castle3DSState> castle3DSStack;
+    static std::vector<uint8_t> castle3DSFooterPixels;
+    static int castle3DSFooterWidth = 0;
+    static int castle3DSFooterHeight = 0;
+    static Rect castle3DSFooterExitRect;
 #if defined( TARGET_NINTENDO_3DS )
     static std::vector<uint8_t> adventure3DSSnapshot;
     static std::vector<uint8_t> battle3DSSnapshot;
@@ -1572,6 +1576,32 @@ namespace fheroes2
     {
         assert( !castle3DSStack.empty() );
         castle3DSStack.pop_back();
+        if ( castle3DSStack.empty() ) {
+            castle3DSFooterPixels.clear();
+            castle3DSFooterWidth = 0;
+            castle3DSFooterHeight = 0;
+            castle3DSFooterExitRect = {};
+        }
+    }
+    void set3DSCastleFooter( const uint8_t * pixels, const int width, const int height, const Rect exitRect )
+    {
+        if ( !pixels || width <= 0 || height <= 0 ) {
+            castle3DSFooterPixels.clear();
+            castle3DSFooterWidth = 0;
+            castle3DSFooterHeight = 0;
+            castle3DSFooterExitRect = {};
+            return;
+        }
+        castle3DSFooterWidth = width;
+        castle3DSFooterHeight = height;
+        castle3DSFooterExitRect = exitRect;
+        castle3DSFooterPixels.assign( pixels, pixels + static_cast<size_t>( width ) * height );
+    }
+    const uint8_t * get3DSCastleFooter( int & width, int & height )
+    {
+        width = castle3DSFooterWidth;
+        height = castle3DSFooterHeight;
+        return castle3DSFooterPixels.empty() ? nullptr : castle3DSFooterPixels.data();
     }
     bool is3DSCastleView()
     {
@@ -1599,7 +1629,20 @@ namespace fheroes2
     {
         if ( !is3DSCastleView() || bottomPoint.x < 0 || bottomPoint.x >= 320 || bottomPoint.y < 0 || bottomPoint.y >= 240 )
             return { -1, -1 };
-        return { std::clamp<int32_t>( bottomPoint.x * 2 + 1, 0, 639 ), std::clamp<int32_t>( 256 + ( bottomPoint.y * 2 + 1 ) * 224 / 480, 256, 479 ) };
+        if ( !castle3DSFooterPixels.empty() && castle3DSFooterHeight > 0 && castle3DSFooterHeight < 240 ) {
+            const int splitY = 240 - castle3DSFooterHeight;
+            if ( bottomPoint.y >= splitY ) {
+                const Point footerPoint{ bottomPoint.x, bottomPoint.y - splitY };
+                if ( castle3DSFooterExitRect & footerPoint ) {
+                    return { 553 + castle3DSFooterExitRect.width / 2, 428 + castle3DSFooterExitRect.height / 2 };
+                }
+                return { 552 + 41, 262 + 80 };
+            }
+            return { std::clamp<int32_t>( ( bottomPoint.x * 2 + 1 ) * 552 / 640, 0, 551 ),
+                     std::clamp<int32_t>( 256 + ( bottomPoint.y * 2 + 1 ) * 204 / ( 2 * splitY ), 256, 459 ) };
+        }
+        return { std::clamp<int32_t>( ( bottomPoint.x * 2 + 1 ) * 552 / 640, 0, 551 ),
+                 std::clamp<int32_t>( 256 + ( bottomPoint.y * 2 + 1 ) * 204 / 480, 256, 459 ) };
     }
     const uint8_t * get3DSAdventureSnapshot()
     {

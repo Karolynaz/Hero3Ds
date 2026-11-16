@@ -339,7 +339,9 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
 
     // Status bar at the bottom of dialog.
     const fheroes2::Sprite & bar = Assets::getImage( ICN::SMALLBAR, 0 );
+#if !defined( TARGET_NINTENDO_3DS )
     fheroes2::Copy( bar, 0, 0, display, statusBarPosition.x, statusBarPosition.y, bar.width(), bar.height() );
+#endif
 
     StatusBar statusBar;
     // Status bar must be smaller due to extra art on both sides.
@@ -383,7 +385,12 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
     fheroes2::Button buttonExit( dialogRoi.x + 553, dialogRoi.y + 428, ICN::BUTTON_EXIT_TOWN, 0, 1 );
 
     // Kingdom resources.
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Rect rectResource( dialogRoi.x + 552, dialogRoi.y + 262, 82, 192 );
+    fheroes2::update3DSCastleResourceFooter( GetKingdom().GetFunds(), false );
+#else
     const fheroes2::Rect & rectResource = fheroes2::drawResourcePanel( GetKingdom().GetFunds(), display, dialogRoi.getPosition() );
+#endif
     const fheroes2::Rect resActiveArea( rectResource.x, rectResource.y, rectResource.width, buttonExit.area().y - rectResource.y - 3 );
 
     // Cache a vector of castle buildings in the order they are rendered.
@@ -397,9 +404,11 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
         buttonNextCastle.disable();
     }
 
+#if !defined( TARGET_NINTENDO_3DS )
     buttonPrevCastle.draw();
     buttonNextCastle.draw();
     buttonExit.draw();
+#endif
 
     std::string statusMessage;
     LocalEvent & le = LocalEvent::Get();
@@ -456,6 +465,7 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
 
         fheroes2::Rect area;
 
+#if !defined( TARGET_NINTENDO_3DS )
         if ( statusMessage.empty() ) {
             area = statusBar.updateMessage( currentDate );
         }
@@ -463,6 +473,9 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
             area = statusBar.updateMessage( statusMessage );
             statusMessage.clear();
         }
+#else
+        statusMessage.clear();
+#endif
 
         if ( area != fheroes2::Rect{} ) {
             display.updateNextRenderRoi( area );
@@ -500,14 +513,23 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
 
         // During hero purchase or building construction skip any interaction with the dialog.
         if ( alphaHero >= 255 && fadeBuilding.isFadeDone() ) {
+#if !defined( TARGET_NINTENDO_3DS )
             if ( buttonPrevCastle.isEnabled() ) {
                 buttonPrevCastle.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonPrevCastle.area() ) );
             }
             if ( buttonNextCastle.isEnabled() ) {
                 buttonNextCastle.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonNextCastle.area() ) );
             }
+#endif
 
+            const bool prevExitPressed = buttonExit.isPressed();
             buttonExit.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonExit.area() ) );
+#if defined( TARGET_NINTENDO_3DS )
+            if ( prevExitPressed != buttonExit.isPressed() ) {
+                fheroes2::update3DSCastleResourceFooter( GetKingdom().GetFunds(), buttonExit.isPressed() );
+                display.render( dialogRoi );
+            }
+#endif
 
             // Check buttons for closing this castle's window.
             if ( le.MouseClickLeft( buttonExit.area() ) || Game::HotKeyCloseWindow() ) {
@@ -806,11 +828,15 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
             if ( bottomArmyBar.isValid() && alphaHero >= 255 ) {
                 bottomArmyBar.Redraw( display );
             }
+#if defined( TARGET_NINTENDO_3DS )
+            fheroes2::update3DSCastleResourceFooter( GetKingdom().GetFunds(), buttonExit.isPressed() );
+#else
             fheroes2::drawResourcePanel( GetKingdom().GetFunds(), display, dialogRoi.getPosition() );
 
             if ( buttonExit.isPressed() ) {
                 buttonExit.draw();
             }
+#endif
 
             if ( needFadeIn ) {
                 fheroes2::fadeInDisplay( dialogRoi, !isDefaultScreenSize );
@@ -830,7 +856,11 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
                     fheroes2::drawCastleName( *this, fheroes2::Display::instance(), dialogRoi.getPosition() );
                 }
 
+#if defined( TARGET_NINTENDO_3DS )
+                fheroes2::update3DSCastleResourceFooter( GetKingdom().GetFunds(), buttonExit.isPressed() );
+#else
                 fheroes2::drawResourcePanel( GetKingdom().GetFunds(), display, dialogRoi.getPosition() );
+#endif
 
                 display.render( dialogRoi );
             }

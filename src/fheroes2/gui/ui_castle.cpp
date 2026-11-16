@@ -20,6 +20,7 @@
 
 #include "ui_castle.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <string>
@@ -300,13 +301,57 @@ namespace fheroes2
         return roi;
     }
 
+#if defined( TARGET_NINTENDO_3DS )
+    void update3DSCastleResourceFooter( const Funds & kingdomTreasures, const bool exitPressed )
+    {
+        constexpr int32_t footerWidth = 320;
+        constexpr int32_t footerHeight = 48;
+        Image footer( footerWidth, footerHeight );
+        footer._disableTransformLayer();
+        footer.fill( 0 );
+
+        DrawRect( footer, { 0, 0, footerWidth, footerHeight }, GetColorId( 0xC8, 0xA8, 0x38 ) );
+
+        const Sprite & exitSprite = Assets::getImage( ICN::BUTTON_EXIT_TOWN, exitPressed ? 1 : 0 );
+        const int32_t exitX = footerWidth - 4 - exitSprite.width();
+        const int32_t exitY = ( footerHeight - exitSprite.height() ) / 2;
+        Blit( exitSprite, footer, exitX, exitY );
+
+        const int32_t resourcesAreaWidth = exitX - 4;
+        const std::array<std::pair<uint32_t, int32_t>, 7> items = { {
+            { 0, kingdomTreasures.wood },
+            { 2, kingdomTreasures.ore },
+            { 1, kingdomTreasures.mercury },
+            { 3, kingdomTreasures.sulfur },
+            { 4, kingdomTreasures.crystal },
+            { 5, kingdomTreasures.gems },
+            { 6, kingdomTreasures.gold },
+        } };
+        const int32_t slotWidth = resourcesAreaWidth / 7;
+        const FontType fontType( FontSize::SMALL, FontColor::WHITE );
+
+        for ( size_t i = 0; i < items.size(); ++i ) {
+            const Sprite & icon = Assets::getImage( ICN::RESOURCE, items[i].first );
+            const int32_t slotX = 2 + static_cast<int32_t>( i ) * slotWidth;
+            const int32_t iconX = slotX + ( slotWidth - icon.width() ) / 2;
+            const int32_t iconY = std::max<int32_t>( 2, 34 - icon.height() );
+            Blit( icon, footer, iconX, iconY );
+
+            const Text valueText( std::to_string( items[i].second ), fontType );
+            valueText.draw( slotX + ( slotWidth - valueText.width() ) / 2, 35, footer );
+        }
+
+        set3DSCastleFooter( footer.image(), footerWidth, footerHeight, { exitX, exitY, exitSprite.width(), exitSprite.height() } );
+    }
+#endif
+
     void drawCastleName( const Castle & castle, Image & output, const Point & offset )
     {
         const fheroes2::Sprite & background = Assets::getImage( ICN::TOWNNAME, 0 );
         int32_t bannerY = 248;
 #if defined( TARGET_NINTENDO_3DS )
         if ( fheroes2::is3DSCastleView() ) {
-            bannerY = 256 - background.height();
+            bannerY = 255 - background.height();
         }
 #endif
         fheroes2::Blit( background, fheroes2::Display::instance(), offset.x + 320 - background.width() / 2, offset.y + bannerY );

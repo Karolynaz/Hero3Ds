@@ -59,6 +59,8 @@ namespace fheroes2
     Point map3DSCastleTopPointer( Point viewportPoint );
     Point map3DSCastleSubPointer( Point viewportPoint );
     Point map3DSCastleTouch( Point bottomPoint );
+    void set3DSCastleFooter( const uint8_t * pixels, int width, int height, Rect exitRect );
+    const uint8_t * get3DSCastleFooter( int & width, int & height );
     class Scope3DSCastleView final
     {
     public:
