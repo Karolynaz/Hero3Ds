@@ -39,6 +39,8 @@ namespace fheroes2
     bool is3DSAdventureLayout();
     void set3DSAdventureEdgeScroll( Point direction );
     Point get3DSAdventureEdgeScroll();
+    void set3DSLastInputTouch( bool touch );
+    bool was3DSLastInputTouch();
     // Battle keeps its original 640x480 canvas, uniformly scales its field to
     // 380 pixels wide, and projects the existing footer onto the bottom screen.
     void enterBattle3DSView();

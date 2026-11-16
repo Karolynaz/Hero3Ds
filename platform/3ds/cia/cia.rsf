@@ -1,0 +1,81 @@
+BasicInfo:
+  Title                   : "Heroes II 3DS"
+  CompanyCode             : "00"
+  ProductCode             : "CTR-P-FH2S"
+  ContentType             : Application
+  Logo                    : Homebrew
+
+TitleInfo:
+  UniqueId                : 0xF2002
+  Category                : Application
+
+Option:
+  UseOnSD                 : true
+  FreeProductCode         : true
+  MediaFootPadding        : false
+  EnableCrypt             : false
+  EnableCompress          : true
+
+AccessControlInfo:
+  CoreVersion             : 2
+  DescVersion             : 2
+  ReleaseKernelMajor      : "02"
+  ReleaseKernelMinor      : "33"
+
+  UseExtSaveData          : false
+  FileSystemAccess:
+    - Debug
+    - DirectSdmc
+
+  ServiceAccessControl:
+    - APT:U
+    - ac:u
+    - boss:U
+    - cam:u
+    - cfg:u
+    - dsp::DSP
+    - frd:u
+    - fs:USER
+    - gsp::Gpu
+    - hid:USER
+    - http:C
+    - mic:u
+    - ndm:u
+    - news:s
+    - nwm::UDS
+    - ptm:u
+    - pxi:dev
+    - soc:U
+
+  IdealProcessor          : 0
+  AffinityMask            : 1
+  Priority                : 16
+  MaxCpu                  : 0x9E
+  DisableDebug            : false
+  EnableForceDebug        : false
+  CanWriteSharedPage      : false
+  CanUsePrivilegedPriority: false
+  CanUseNonAlphabetAndNumber: false
+  PermitMainFunctionArgument: false
+  CanShareDeviceMemory    : false
+  RunnableOnSleep         : false
+  SpecialMemoryArrange    : false
+
+SystemControlInfo:
+  SaveDataSize            : 0KB
+  RemasterVersion         : 0
+  StackSize               : 0x40000
+
+MemoryType                : Application
+SystemMode                : 64MB
+SystemModeExt             : Legacy
+CpuSpeed                  : 804MHz
+EnableL2Cache             : true
+CanAccessCore2            : true
+
+IORegisterMapping:
+  - 1ff50000-1ff57fff
+  - 1ff70000-1ff77fff
+
+MemoryMapping:
+  - 1f000000-1f5fffff:r

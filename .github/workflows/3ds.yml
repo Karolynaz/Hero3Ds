@@ -51,12 +51,26 @@ jobs:
           cmake -S platform/3ds -B build/3ds
           -DCMAKE_TOOLCHAIN_FILE="$DEVKITPRO/cmake/3DS.cmake"
           -DCMAKE_BUILD_TYPE=Release
-      - name: Build and package 3DSX
-        run: cmake --build build/3ds -j2
+      - name: Build and package 3DSX and CIA
+        run: |
+          cmake --build build/3ds -j2
+          apt-get update && apt-get install -y curl unzip
+          curl -fsSL -o /tmp/bannertool.zip https://github.com/Epicpkmn11/bannertool/releases/download/v1.2.2/bannertool.zip
+          unzip -p /tmp/bannertool.zip linux-x86_64/bannertool > /usr/local/bin/bannertool
+          chmod +x /usr/local/bin/bannertool
+          curl -fsSL -o /tmp/makerom.zip https://github.com/3DSGuy/Project_CTR/releases/download/makerom-v0.19.0/makerom-v0.19.0-ubuntu_x86_64.zip
+          unzip -p /tmp/makerom.zip makerom > /usr/local/bin/makerom
+          chmod +x /usr/local/bin/makerom
+          bannertool makebanner -i platform/3ds/cia/banner.png -a platform/3ds/cia/banner.wav -o build/3ds/banner.bnr
+          bannertool makesmdh -s "Heroes II 3DS" -l "Free Heroes of Might and Magic II" -p "fheroes2 / Hero3DS" -i platform/3ds/cia/icon.png -o build/3ds/icon.icn
+          ELF=build/3ds/Hero3DS.elf
+          if [ ! -f "$ELF" ]; then ELF=build/3ds/Hero3DS; fi
+          makerom -f cia -o build/3ds/Hero3DS.cia -elf "$ELF" -rsf platform/3ds/cia/cia.rsf -icon build/3ds/icon.icn -banner build/3ds/banner.bnr
       - uses: actions/upload-artifact@v4
         with:
           name: Hero3DS-experimental
           path: |
             build/3ds/Hero3DS.3dsx
+            build/3ds/Hero3DS.cia
             build/3ds/Hero3DS.smdh
           if-no-files-found: error

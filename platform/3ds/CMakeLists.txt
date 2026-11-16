@@ -47,5 +47,5 @@ foreach(DIRECTORY agg ai army audio battle campaign castle dialog editor game gu
 endforeach()
 target_compile_definitions(Hero3DS PRIVATE FHEROES2_DATA=sdmc:/3ds/fheroes2)
 target_link_libraries(Hero3DS PRIVATE engine)
-ctr_generate_smdh(Hero3DS.smdh NAME "Heroes II 3DS" DESCRIPTION "fheroes2 Nintendo 3DS port" AUTHOR "fheroes2 / Hero3DS")
+ctr_generate_smdh(Hero3DS.smdh NAME "Heroes II 3DS" DESCRIPTION "fheroes2 Nintendo 3DS port" AUTHOR "fheroes2 / Hero3DS" ICON "${CMAKE_CURRENT_SOURCE_DIR}/cia/icon.png")
 ctr_create_3dsx(Hero3DS SMDH Hero3DS.smdh)

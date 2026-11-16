@@ -115,6 +115,9 @@ namespace EventProcessing
             _timer.reset();
             circlePosition circle{};
             hidCircleRead( &circle );
+            if ( std::abs( circle.dx ) > 20 || std::abs( circle.dy ) > 20 ) {
+                fheroes2::set3DSLastInputTouch( false );
+            }
             const fheroes2::Display & display = fheroes2::Display::instance();
             const bool nativeDialog = fheroes2::is3DSNativeDialog();
             const auto dialogScopeId = fheroes2::get3DSDialogScopeId();
@@ -330,6 +333,7 @@ namespace EventProcessing
             const auto touchTransition
                 = _touchGate.update( touchEnabled && !battleViewChanged && !castleViewChanged && !dialogChanged, held & KEY_TOUCH, down & KEY_TOUCH, up & KEY_TOUCH );
             if ( _touchGate.active() && ( held & KEY_TOUCH ) ) {
+                fheroes2::set3DSLastInputTouch( true );
                 _touch = projectedTouch;
                 events.onMouseMotionEvent( _touch );
                 if ( nativeDialog ) {

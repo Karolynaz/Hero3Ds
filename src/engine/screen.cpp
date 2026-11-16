@@ -1476,6 +1476,7 @@ namespace fheroes2
     static int castle3DSFooterWidth = 0;
     static int castle3DSFooterHeight = 0;
     static Rect castle3DSFooterExitRect;
+    static bool last3DSInputTouch = false;
 #if defined( TARGET_NINTENDO_3DS )
     static std::vector<uint8_t> adventure3DSSnapshot;
     static std::vector<uint8_t> battle3DSSnapshot;
@@ -1499,6 +1500,14 @@ namespace fheroes2
     Point get3DSAdventureEdgeScroll()
     {
         return is3DSAdventureLayout() ? adventure3DSEdgeScroll : Point();
+    }
+    void set3DSLastInputTouch( const bool touch )
+    {
+        last3DSInputTouch = touch;
+    }
+    bool was3DSLastInputTouch()
+    {
+        return last3DSInputTouch;
     }
     void enterBattle3DSView()
     {
@@ -2018,8 +2027,26 @@ namespace fheroes2
         }
 
         bool drawSoftwareCursor = true;
+        int32_t maxCursorBottomY = height();
+        int32_t maxCursorRightX = width();
 #if defined( TARGET_NINTENDO_3DS )
-        drawSoftwareCursor = !( is3DSNativeDialog() && !get3DSDialogButtons().empty() && ( is3DSDialogExplicitLayout() || !( hidKeysHeld() & KEY_L ) ) );
+        if ( is3DSNativeDialog() ) {
+            if ( !get3DSDialogButtons().empty() || is3DSDialogExplicitLayout() || was3DSLastInputTouch() || !( hidKeysHeld() & KEY_L ) ) {
+                if ( !get3DSDialogButtons().empty() || is3DSDialogExplicitLayout() || was3DSLastInputTouch() ) {
+                    drawSoftwareCursor = false;
+                }
+            }
+        }
+        else if ( is3DSAdventureLayout() ) {
+            maxCursorBottomY = 240;
+            maxCursorRightX = 400;
+        }
+        else if ( is3DSBattleView() ) {
+            maxCursorBottomY = get3DSBattleFooter().y;
+        }
+        else if ( is3DSCastleView() ) {
+            maxCursorBottomY = 256;
+        }
 #endif
         if ( drawSoftwareCursor && _cursor->isVisible() && _cursor->isSoftwareEmulation() && !_cursor->_image.empty() ) {
             const Sprite & cursorImage = _cursor->_image;
@@ -2030,21 +2057,40 @@ namespace fheroes2
                 cursorROI.y = std::clamp<int32_t>( cursorROI.y, 0, height() - cursorROI.height );
             }
 
-            const Sprite backup = Crop( *this, cursorROI.x, cursorROI.y, cursorROI.width, cursorROI.height );
-            Blit( cursorImage, 0, 0, *this, cursorROI.x, cursorROI.y, cursorROI.width, cursorROI.height );
-
-            // ROI must include cursor's area as well, otherwise cursor won't be rendered.
-            if ( !backup.empty() && getActiveArea( cursorROI, width(), height() ) ) {
-                temp = getBoundaryRect( temp, cursorROI );
+#if defined( TARGET_NINTENDO_3DS )
+            if ( cursorROI.y >= maxCursorBottomY || cursorROI.x >= maxCursorRightX ) {
+                cursorROI.width = 0;
+                cursorROI.height = 0;
             }
-
-            _renderFrame( temp );
-
-            if ( _postprocessing ) {
-                _postprocessing();
+            else {
+                cursorROI.width = std::min<int32_t>( cursorROI.width, maxCursorRightX - cursorROI.x );
+                cursorROI.height = std::min<int32_t>( cursorROI.height, maxCursorBottomY - cursorROI.y );
             }
+#endif
+            if ( cursorROI.width > 0 && cursorROI.height > 0 ) {
+                const Sprite backup = Crop( *this, cursorROI.x, cursorROI.y, cursorROI.width, cursorROI.height );
+                Blit( cursorImage, 0, 0, *this, cursorROI.x, cursorROI.y, cursorROI.width, cursorROI.height );
 
-            Copy( backup, 0, 0, *this, backup.x(), backup.y(), backup.width(), backup.height() );
+                // ROI must include cursor's area as well, otherwise cursor won't be rendered.
+                if ( !backup.empty() && getActiveArea( cursorROI, width(), height() ) ) {
+                    temp = getBoundaryRect( temp, cursorROI );
+                }
+
+                _renderFrame( temp );
+
+                if ( _postprocessing ) {
+                    _postprocessing();
+                }
+
+                Copy( backup, 0, 0, *this, backup.x(), backup.y(), backup.width(), backup.height() );
+            }
+            else {
+                _renderFrame( temp );
+
+                if ( _postprocessing ) {
+                    _postprocessing();
+                }
+            }
         }
         else {
             _renderFrame( temp );
