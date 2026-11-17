@@ -225,9 +225,6 @@ namespace
     void ShowExtendedDialog( const Puzzle & pzl, const fheroes2::Image & sf )
     {
         fheroes2::Display & display = fheroes2::Display::instance();
-#if defined( TARGET_NINTENDO_3DS )
-        const fheroes2::Scope3DSCastleView puzzleView3DS( true );
-#endif
 
         // Puzzle map is called only for the Adventure Map, not Editor.
         Interface::AdventureMap & adventureMapInterface = Interface::AdventureMap::Get();
@@ -240,6 +237,9 @@ namespace
 
         const fheroes2::StandardWindow border( gameAreaRoi.x + ( gameAreaRoi.width - sf.width() ) / 2, gameAreaRoi.y + ( gameAreaRoi.height - sf.height() ) / 2,
                                                sf.width(), sf.height(), false );
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Scope3DSCastleView puzzleView3DS( true );
+#endif
 
         const fheroes2::Rect & puzzleArea = border.activeArea();
 

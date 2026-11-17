@@ -1186,6 +1186,27 @@ namespace fheroes2
 
     void openVirtualNumpad( int32_t & output, const int32_t minValue, const int32_t maxValue )
     {
+#if defined( TARGET_NINTENDO_3DS )
+        SwkbdState swkbd{};
+        swkbdInit( &swkbd, SWKBD_TYPE_NUMPAD, 2, 11 );
+        const std::string initial = std::to_string( output );
+        swkbdSetInitialText( &swkbd, initial.c_str() );
+        swkbdSetValidation( &swkbd, SWKBD_ANYTHING, 0, 0 );
+
+        char buffer[16] = {};
+        if ( swkbdInputText( &swkbd, buffer, sizeof( buffer ) ) == SWKBD_BUTTON_CONFIRM ) {
+            try {
+                const int32_t intValue = std::stoi( buffer );
+                output = std::clamp( intValue, minValue, maxValue );
+            }
+            catch ( ... ) {
+                // Keep previous value when the entered text cannot be parsed.
+            }
+        }
+        LocalEvent::Get().reset();
+        Display::instance().render();
+        return;
+#else
         std::string strValue = std::to_string( output );
         DialogAction action = DialogAction::DoNothing;
 
@@ -1248,5 +1269,6 @@ namespace fheroes2
                 break;
             }
         }
+#endif
     }
 }
