@@ -1565,10 +1565,22 @@ namespace fheroes2
     }
     Point map3DSBattleTouch( const Point bottomPoint )
     {
-        if ( !is3DSBattleView() || bottomPoint.x < 0 || bottomPoint.x >= 320 || bottomPoint.y < 0 || bottomPoint.y >= battle3DSFooter.height * 2 )
+        if ( !is3DSBattleView() || bottomPoint.x < 0 || bottomPoint.x >= 320 || bottomPoint.y < 0 || bottomPoint.y >= 240 )
             return { -1, -1 };
-        const int half = bottomPoint.y / battle3DSFooter.height;
-        return { bottomPoint.x + half * 320, battle3DSFooter.y + bottomPoint.y % battle3DSFooter.height };
+        const int footerH = std::clamp<int>( battle3DSFooter.height, 1, 120 );
+        const int splitY = 240 - footerH;
+        if ( bottomPoint.y < splitY && splitY > 0 && battle3DSFooter.y > 0 ) {
+            return { std::clamp<int>( bottomPoint.x * 640 / 320, 0, 639 ),
+                     std::clamp<int>( bottomPoint.y * battle3DSFooter.y / splitY, 0, battle3DSFooter.y - 1 ) };
+        }
+        const int rowY = battle3DSFooter.y + std::clamp<int>( bottomPoint.y - splitY, 0, footerH - 1 );
+        if ( bottomPoint.x < 42 ) {
+            return { bottomPoint.x, rowY };
+        }
+        if ( bottomPoint.x >= 278 ) {
+            return { 598 + ( bottomPoint.x - 278 ), rowY };
+        }
+        return { 202 + ( bottomPoint.x - 42 ), rowY };
     }
     const uint8_t * get3DSBattleSnapshot()
     {

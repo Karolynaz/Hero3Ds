@@ -1145,10 +1145,15 @@ Battle::Status::Status()
 
 void Battle::Status::setMessage( std::string messageString, const bool top )
 {
+#if defined( TARGET_NINTENDO_3DS )
+    const int32_t maxRowWidth = std::min<int32_t>( width - offsetForTextBar * 2, 228 );
+#else
+    const int32_t maxRowWidth = width - offsetForTextBar * 2;
+#endif
     if ( top ) {
         _upperText.set( messageString, fheroes2::FontType::normalWhite() );
         // The text cannot go beyond the text area so it is important to truncate it when necessary.
-        _upperText.fitToOneRow( width - offsetForTextBar * 2 );
+        _upperText.fitToOneRow( maxRowWidth );
 
         if ( _battleStatusLog ) {
             _battleStatusLog->AddMessage( std::move( messageString ) );
@@ -1157,7 +1162,7 @@ void Battle::Status::setMessage( std::string messageString, const bool top )
     else if ( messageString != _lastMessage ) {
         _lowerText.set( messageString, fheroes2::FontType::normalWhite() );
         // The text cannot go beyond the text area so it is important to truncate it when necessary.
-        _lowerText.fitToOneRow( width - offsetForTextBar * 2 );
+        _lowerText.fitToOneRow( maxRowWidth );
 
         _lastMessage = std::move( messageString );
     }

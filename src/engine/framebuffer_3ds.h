@@ -128,9 +128,10 @@ namespace fheroes2::threeDS
                 }
             }
         };
-        const auto copyNative = [&]( uint8_t * output, const int sourceX, const int sourceY, const int width, const int height, const int destinationY,
-                                     const uint8_t * source, const int sourceStride, const int sourceHeight ) {
-            for ( int x = 0; x < width; ++x ) {
+        const auto copyNative = [&]( uint8_t * output, const int sourceX, const int sourceY, const int width, const int height, const int destinationX,
+                                     const int destinationY, const uint8_t * source, const int sourceStride, const int sourceHeight ) {
+            const int dstLimitX = ( output == bottom ) ? 320 : 400;
+            for ( int x = 0; x < width && x + destinationX < dstLimitX; ++x ) {
                 const int sx = sourceX + x;
                 if ( sx < 0 || sx >= sourceStride )
                     continue;
@@ -139,7 +140,7 @@ namespace fheroes2::threeDS
                     if ( sy < 0 || sy >= sourceHeight )
                         continue;
                     const auto color = palette[source[static_cast<size_t>( sy ) * sourceStride + sx]];
-                    const size_t offset = static_cast<size_t>( x * 240 + 239 - y - destinationY ) * 3;
+                    const size_t offset = static_cast<size_t>( ( x + destinationX ) * 240 + 239 - y - destinationY ) * 3;
                     output[offset] = static_cast<uint8_t>( color );
                     output[offset + 1] = static_cast<uint8_t>( color >> 8 );
                     output[offset + 2] = static_cast<uint8_t>( color >> 16 );
@@ -235,7 +236,7 @@ namespace fheroes2::threeDS
         };
         if ( dialog && dialog->frozenTop ) {
             if ( dialog->topOverlay )
-                copyNative( top, 0, 0, 400, 240, 0, image, imageWidth, imageHeight );
+                copyNative( top, 0, 0, 400, 240, 0, 0, image, imageWidth, imageHeight );
             else
                 for ( int x = 0; x < 400; ++x )
                     for ( int y = 0; y < 240; ++y ) {
@@ -257,9 +258,12 @@ namespace fheroes2::threeDS
                             top[offset + channel] = static_cast<uint8_t>( static_cast<unsigned>( top[offset + channel] ) * 55 / 100 );
                     }
             }
-            copyNative( bottom, dialog->cropX, dialog->cropY, 320, 240, 0, image, imageWidth, imageHeight );
+            copyNative( bottom, dialog->cropX, dialog->cropY, 320, 240, 0, 0, image, imageWidth, imageHeight );
         }
         else if ( battle && ( battle->nativeView || battle->modalSnapshot ) ) {
+            const auto * footer = battle->nativeView ? image : battle->modalSnapshot;
+            const int footerH = std::clamp( battle->footerHeight, 1, 120 );
+            const int splitY = std::max<int>( 0, 240 - footerH );
             if ( battle->nativeView ) {
                 for ( int y = 0; y < 240; ++y )
                     for ( int x = 0; x < 400; ++x ) {
@@ -272,15 +276,19 @@ namespace fheroes2::threeDS
                         top[offset + 1] = static_cast<uint8_t>( color >> 8 );
                         top[offset + 2] = static_cast<uint8_t>( color >> 16 );
                     }
+                if ( splitY > 0 && battle->footerY > 0 ) {
+                    copyScaledAvgX( bottom, 320, splitY, 0, 0, 0, std::min( imageWidth, 640 ), battle->footerY );
+                }
             }
-            else
+            else {
                 copy( top, 320, 0, 2, 40, image );
-            // Keep all original footer controls and hitboxes on the logical
-            // canvas. Present its left and right halves in two native rows.
-            const auto * footer = battle->nativeView ? image : battle->modalSnapshot;
-            const int height = std::clamp( battle->footerHeight, 1, 120 );
-            copyNative( bottom, 0, battle->footerY, 320, height, 0, footer, imageWidth, imageHeight );
-            copyNative( bottom, 320, battle->footerY, 320, height, height, footer, imageWidth, imageHeight );
+            }
+            // Compose a clean 320px native footer at the bottom edge of the lower
+            // display: left controls (0..41), centered Status (202..437 -> 42..277),
+            // and right Skip button (598..639 -> 278..319) without splitting text.
+            copyNative( bottom, 0, battle->footerY, 42, footerH, 0, splitY, footer, imageWidth, imageHeight );
+            copyNative( bottom, 202, battle->footerY, 236, footerH, 42, splitY, footer, imageWidth, imageHeight );
+            copyNative( bottom, 598, battle->footerY, 42, footerH, 278, splitY, footer, imageWidth, imageHeight );
         }
         else if ( castle && castle->mainView ) {
             copyScaledFast( top, 400, 240, 0, 0, 0, std::min( imageWidth, 640 ), std::min( imageHeight, 256 ) );
@@ -290,7 +298,7 @@ namespace fheroes2::threeDS
                 if ( castle->footer && castle->footerWidth == 320 && castle->footerHeight > 0 && castle->footerHeight < 240 ) {
                     const int splitY = 240 - castle->footerHeight;
                     copyScaledAvgX( bottom, 320, splitY, 0, 0, 256, armyWidth, armyHeight );
-                    copyNative( bottom, 0, 0, 320, castle->footerHeight, splitY, castle->footer, castle->footerWidth, castle->footerHeight );
+                    copyNative( bottom, 0, 0, 320, castle->footerHeight, 0, splitY, castle->footer, castle->footerWidth, castle->footerHeight );
                 }
                 else {
                     copyScaledAvgX( bottom, 320, 240, 0, 0, 256, armyWidth, armyHeight );

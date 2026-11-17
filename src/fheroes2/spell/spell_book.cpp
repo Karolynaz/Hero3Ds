@@ -235,11 +235,14 @@ Spell SpellBook::Open( const HeroBase & hero, const Filter displayableSpells, co
         bool nativeClosed = false;
         int lastNativeStatusSpell = Spell::NONE;
         while ( !nativeClosed ) {
-            fheroes2::draw3DSPanel( { 0, 240, 320, 240 }, _spellFilter == Filter::CMBT ? _( "Combat Spells" ) : _( "Adventure Spells" ) );
+            fheroes2::draw3DSPanel( { 0, 240, 320, 240 } );
+            fheroes2::Text( _spellFilter == Filter::CMBT ? _( "Combat Spells" ) : _( "Adventure Spells" ), fheroes2::FontType::normalYellow() )
+                .draw( 22, 251, 210, nativeDisplay );
             const std::string mana = std::to_string( hero.GetSpellPoints() ) + "/" + std::to_string( hero.GetMaxSpellPoints() );
-            fheroes2::Text( mana, fheroes2::FontType::normalWhite() ).draw( 245, 246, nativeDisplay );
-            auto adventure = fheroes2::make3DSButton( _( "Adventure" ), { 6, 264, 150, 22 } );
-            auto combat = fheroes2::make3DSButton( _( "Combat" ), { 164, 264, 150, 22 } );
+            const fheroes2::Text manaText( mana, fheroes2::FontType::normalWhite() );
+            manaText.draw( 298 - manaText.width(), 251, nativeDisplay );
+            auto adventure = fheroes2::make3DSButton( _( "Adventure" ), { 6, 270, 150, 22 } );
+            auto combat = fheroes2::make3DSButton( _( "Combat" ), { 164, 270, 150, 22 } );
             if ( displayableSpells == Filter::CMBT )
                 adventure.disable();
             if ( displayableSpells == Filter::ADVN )
@@ -250,9 +253,9 @@ Spell SpellBook::Open( const HeroBase & hero, const Filter displayableSpells, co
             for ( size_t slot = 0; slot < shown; ++slot ) {
                 const Spell & spell = displayedSpells[_startSpellIndex + slot];
                 const fheroes2::Sprite & icon = Assets::getImage( ICN::SPELLS, spell.IndexSprite() );
-                fheroes2::Sprite released( 100, 82 );
+                fheroes2::Sprite released( 100, 74 );
                 released.reset();
-                fheroes2::Fill( released, 0, 0, 100, 82, 31 );
+                fheroes2::Fill( released, 0, 0, 100, 74, 31 );
                 fheroes2::Blit( icon, released, ( 100 - icon.width() ) / 2, 1 );
                 const bool available = !canCastSpell || hero.CanCastSpell( spell );
                 const auto font = available ? fheroes2::FontType::normalWhite() : fheroes2::FontType{ fheroes2::FontSize::NORMAL, fheroes2::FontColor::GRAY };
@@ -263,21 +266,21 @@ Spell SpellBook::Open( const HeroBase & hero, const Filter displayableSpells, co
                         name.pop_back();
                     nameText.set( name + "...", font );
                 }
-                nameText.draw( ( 100 - nameText.width() ) / 2, 49, released );
+                nameText.draw( ( 100 - nameText.width() ) / 2, 44, released );
                 const fheroes2::Text cost( "[" + std::to_string( spell.spellPoints( &hero ) ) + "]", font );
-                cost.draw( ( 100 - cost.width() ) / 2, 65, released );
+                cost.draw( ( 100 - cost.width() ) / 2, 59, released );
                 fheroes2::Sprite pressed = released;
                 fheroes2::DrawLine( pressed, { 0, 0 }, { 99, 0 }, 114 );
-                fheroes2::DrawLine( pressed, { 0, 81 }, { 99, 81 }, 114 );
-                spellButtons.emplace_back( 6 + static_cast<int32_t>( slot % 3 ) * 104, 288 + static_cast<int32_t>( slot / 3 ) * 82, std::move( released ),
+                fheroes2::DrawLine( pressed, { 0, 73 }, { 99, 73 }, 114 );
+                spellButtons.emplace_back( 6 + static_cast<int32_t>( slot % 3 ) * 104, 296 + static_cast<int32_t>( slot / 3 ) * 76, std::move( released ),
                                            std::move( pressed ) );
                 spellButtons.back().draw();
             }
             adventure.draw();
             combat.draw();
-            auto previous = fheroes2::make3DSButton( "<", { 6, 454, 64, 22 } );
-            auto next = fheroes2::make3DSButton( ">", { 78, 454, 64, 22 } );
-            auto close = fheroes2::make3DSButton( _( "Close" ), { 220, 454, 94, 22 } );
+            auto previous = fheroes2::make3DSButton( _( "Prev" ), { 6, 452, 66, 22 } );
+            auto next = fheroes2::make3DSButton( _( "Next" ), { 78, 452, 66, 22 } );
+            auto close = fheroes2::make3DSButton( _( "Close" ), { 220, 452, 94, 22 } );
             if ( _startSpellIndex == 0 )
                 previous.disable();
             if ( _startSpellIndex + nativePageSize >= displayedSpells.size() )
@@ -286,8 +289,8 @@ Spell SpellBook::Open( const HeroBase & hero, const Filter displayableSpells, co
             next.draw();
             close.draw();
             const size_t pages = std::max<size_t>( 1, ( displayedSpells.size() + nativePageSize - 1 ) / nativePageSize );
-            fheroes2::Text( std::to_string( _startSpellIndex / nativePageSize + 1 ) + "/" + std::to_string( pages ), fheroes2::FontType::normalWhite() )
-                .draw( 156, 458, nativeDisplay );
+            const fheroes2::Text pageTxt( std::to_string( _startSpellIndex / nativePageSize + 1 ) + "/" + std::to_string( pages ), fheroes2::FontType::normalWhite() );
+            pageTxt.draw( 182 - pageTxt.width() / 2, 456, nativeDisplay );
             nativeDisplay.render();
             std::vector<const fheroes2::ButtonBase *> focusButtons{ &previous, &next, &close, &adventure, &combat };
             for ( const auto & button : spellButtons ) {

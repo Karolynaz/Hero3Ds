@@ -295,12 +295,10 @@ namespace EventProcessing
                 else if ( _edgeScrollArmed && events.getMouseCursorPos().y < height ) {
                     const double x = events._emulatedPointerPos.x;
                     const double y = events._emulatedPointerPos.y;
-                    const int edgeX = ( ( circle.dx < -20 && x <= 8.0 ) || ( x <= 4.0 && circle.dx <= 20 ) )
-                                          ? -1
-                                          : ( ( ( circle.dx > 20 && x >= width - 9.0 ) || ( x >= width - 5.0 && circle.dx >= -20 ) ) ? 1 : 0 );
-                    const int edgeY = ( ( circle.dy > 20 && y <= 24.0 ) || ( y <= 4.0 && circle.dy >= -20 ) )
-                                          ? -1
-                                          : ( ( ( circle.dy < -20 && y >= height - 9.0 ) || ( y >= height - 5.0 && circle.dy <= 20 ) ) ? 1 : 0 );
+                    // Only edge-scroll while the Circle Pad is actively pushed into an edge
+                    // so releasing the stick never causes runaway camera panning.
+                    const int edgeX = ( circle.dx < -20 && x <= 8.0 ) ? -1 : ( ( circle.dx > 20 && x >= width - 9.0 ) ? 1 : 0 );
+                    const int edgeY = ( circle.dy > 20 && y <= 24.0 ) ? -1 : ( ( circle.dy < -20 && y >= height - 9.0 ) ? 1 : 0 );
                     fheroes2::set3DSAdventureEdgeScroll( { edgeX, edgeY } );
                 }
                 else {
@@ -373,7 +371,19 @@ namespace EventProcessing
             }
 
             fheroes2::Key key = fheroes2::Key::NONE;
-            if ( ( down & ( KEY_B | KEY_SELECT ) ) && ( !nativeDialog || fheroes2::is3DSDialogClosable() ) )
+            const bool adventureView = !nativeDialog && !battleView && !castleView && !castleSubView && !castleBuildView && fheroes2::is3DSAdventureLayout();
+            if ( battleView && ( down & KEY_L ) ) {
+                fheroes2::pan3DSBattleCamera( { -120, 0 } );
+                updateDisplay = true;
+            }
+            if ( battleView && ( down & KEY_R ) ) {
+                fheroes2::pan3DSBattleCamera( { 120, 0 } );
+                updateDisplay = true;
+            }
+            if ( ( down & KEY_SELECT ) && ( battleView || adventureView ) ) {
+                key = battleView ? fheroes2::Key::KEY_O : fheroes2::Key::KEY_F;
+            }
+            else if ( ( down & ( KEY_B | KEY_SELECT ) ) && ( !nativeDialog || fheroes2::is3DSDialogClosable() ) )
                 key = fheroes2::Key::KEY_ESCAPE;
             else if ( ( down & KEY_START ) || ( castleBuildView && ( down & KEY_A ) ) )
                 key = fheroes2::Key::KEY_ENTER;
@@ -381,10 +391,14 @@ namespace EventProcessing
                 key = fheroes2::Key::KEY_PAGE_UP;
             else if ( castleBuildView && ( down & KEY_R ) )
                 key = fheroes2::Key::KEY_PAGE_DOWN;
+            else if ( adventureView && ( down & KEY_L ) )
+                key = fheroes2::Key::KEY_T;
+            else if ( adventureView && ( down & KEY_R ) )
+                key = fheroes2::Key::KEY_M;
             else if ( down & KEY_X )
-                key = fheroes2::Key::KEY_E;
+                key = battleView ? fheroes2::Key::KEY_C : fheroes2::Key::KEY_E;
             else if ( down & KEY_Y )
-                key = fheroes2::Key::KEY_H;
+                key = battleView ? fheroes2::Key::KEY_SPACE : fheroes2::Key::KEY_H;
             else if ( castleBuildView ) {
                 const int stickH = ( circle.dx > 45 ) ? 1 : ( ( circle.dx < -45 ) ? -1 : 0 );
                 const int stickV = ( circle.dy < -45 ) ? 1 : ( ( circle.dy > 45 ) ? -1 : 0 );

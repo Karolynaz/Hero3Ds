@@ -114,32 +114,32 @@ int Heroes::OpenDialog( const bool readonly, const bool fade, const bool disable
         ArmyBar army( &_army, true, readonly, false, true );
         army.setTableSize( { 5, 1 } );
         army.setInBetweenItemsOffset( { 9, 0 } );
-        army.setRenderingOffset( { 34, 268 } );
+        army.setRenderingOffset( { 34, 278 } );
         army.Redraw( display );
-        fheroes2::Text( _( "Artifacts" ), fheroes2::FontType::normalWhite() ).draw( 12, 315, 296, display );
+        fheroes2::Text( _( "Artifacts" ), fheroes2::FontType::normalWhite() ).draw( 12, 323, 296, display );
         StatusBar status;
-        status.setRoi( { 12, 416, 296, 0 } );
+        status.setRoi( { 12, 418, 296, 0 } );
         // Use the original miniature assets at their native size. All fourteen
         // inventory slots remain visible and refer to the original hero bag.
         ArtifactsBar artifacts( this, true, readonly, false, true, &status );
         artifacts.setTableSize( { 7, 2 } );
-        artifacts.setInBetweenItemsOffset( { 7, 6 } );
+        artifacts.setInBetweenItemsOffset( { 7, 5 } );
         artifacts.SetContent( GetBagArtifacts() );
-        artifacts.setRenderingOffset( { 20, 337 } );
+        artifacts.setRenderingOffset( { 20, 339 } );
         artifacts.Redraw( display );
         std::array<uint8_t, 19> cellIds{};
         for ( size_t index = 0; index < 5; ++index ) {
-            fheroes2::register3DSDialogButton( &cellIds[index], { 34 + static_cast<int32_t>( index ) * 52, 268, 43, 43 }, true );
+            fheroes2::register3DSDialogButton( &cellIds[index], { 34 + static_cast<int32_t>( index ) * 52, 278, 43, 43 }, true );
         }
         for ( size_t index = 0; index < 14; ++index ) {
-            fheroes2::register3DSDialogButton( &cellIds[5 + index], { 20 + static_cast<int32_t>( index % 7 ) * 41, 337 + static_cast<int32_t>( index / 7 ) * 40, 34, 34 },
+            fheroes2::register3DSDialogButton( &cellIds[5 + index], { 20 + static_cast<int32_t>( index % 7 ) * 41, 339 + static_cast<int32_t>( index / 7 ) * 39, 34, 34 },
                                                true );
         }
-        auto previous = fheroes2::make3DSButton( _( "Prev" ), { 7, 440, 56, 34 } );
-        auto next = fheroes2::make3DSButton( _( "Next" ), { 67, 440, 56, 34 } );
-        auto skills = fheroes2::make3DSButton( _( "Skills" ), { 127, 440, 62, 34 } );
-        auto dismiss = fheroes2::make3DSButton( _( "Dismiss" ), { 193, 440, 64, 34 } );
-        auto exit = fheroes2::make3DSButton( _( "Exit" ), { 261, 440, 52, 34 } );
+        auto previous = fheroes2::make3DSButton( _( "Prev" ), { 6, 442, 48, 32 } );
+        auto next = fheroes2::make3DSButton( _( "Next" ), { 58, 442, 48, 32 } );
+        auto skills = fheroes2::make3DSButton( _( "Skills" ), { 110, 442, 62, 32 } );
+        auto dismiss = fheroes2::make3DSButton( _( "Dismiss" ), { 176, 442, 82, 32 } );
+        auto exit = fheroes2::make3DSButton( _( "Exit" ), { 262, 442, 52, 32 } );
         if ( readonly || disableSwitch || GetKingdom().GetHeroes().size() < 2 ) {
             previous.disable();
             next.disable();

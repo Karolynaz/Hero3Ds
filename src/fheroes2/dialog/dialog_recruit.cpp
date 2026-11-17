@@ -384,23 +384,7 @@ namespace
             if ( !animInfo.animationFrames[Bin_Info::MonsterAnimInfo::STATIC].empty() ) {
                 const fheroes2::Sprite & smon
                     = Assets::getImage( monster.GetMonsterSprite(), animInfo.animationFrames[Bin_Info::MonsterAnimInfo::STATIC][0] );
-                if ( !smon.empty() && smon.width() > 0 && smon.height() > 0 ) {
-                    if ( smon.width() <= monsterArea.width && smon.height() <= monsterArea.height ) {
-                        fheroes2::Blit( smon, display, monsterArea.x + ( monsterArea.width - smon.width() ) / 2,
-                                        monsterArea.y + ( monsterArea.height - smon.height() ) / 2 );
-                    }
-                    else {
-                        const double scale = std::min( static_cast<double>( monsterArea.width ) / smon.width(),
-                                                       static_cast<double>( monsterArea.height ) / smon.height() );
-                        const int32_t dw = std::max<int32_t>( 1, static_cast<int32_t>( smon.width() * scale ) );
-                        const int32_t dh = std::max<int32_t>( 1, static_cast<int32_t>( smon.height() * scale ) );
-                        fheroes2::Image scaled( dw, dh );
-                        scaled.reset();
-                        fheroes2::Resize( smon, scaled );
-                        fheroes2::Blit( scaled, display, monsterArea.x + ( monsterArea.width - dw ) / 2,
-                                        monsterArea.y + ( monsterArea.height - dh ) / 2 );
-                    }
-                }
+                fheroes2::drawFittedSprite3DS( smon, display, monsterArea );
             }
 
             std::string availStr( _( "Available: %{count}" ) );

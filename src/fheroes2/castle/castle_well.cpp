@@ -281,22 +281,7 @@ void Castle::_openWell()
 
                 // Creature animated sprite centered
                 const fheroes2::Sprite & monSpr = Assets::getImage( monsterAnimInfo[i].icnFile(), monsterAnimInfo[i].frameId() );
-                if ( !monSpr.empty() && monSpr.width() > 0 && monSpr.height() > 0 ) {
-                    const int32_t maxW = card.width - 12;
-                    const int32_t maxH = 66;
-                    if ( monSpr.width() <= maxW && monSpr.height() <= maxH ) {
-                        fheroes2::Blit( monSpr, display, card.x + ( card.width - monSpr.width() ) / 2, card.y + 19 + ( maxH - monSpr.height() ) / 2 );
-                    }
-                    else {
-                        const double scale = std::min( static_cast<double>( maxW ) / monSpr.width(), static_cast<double>( maxH ) / monSpr.height() );
-                        const int32_t dw = std::max<int32_t>( 1, static_cast<int32_t>( monSpr.width() * scale ) );
-                        const int32_t dh = std::max<int32_t>( 1, static_cast<int32_t>( monSpr.height() * scale ) );
-                        fheroes2::Image scaled( dw, dh );
-                        scaled.reset();
-                        fheroes2::Resize( monSpr, scaled );
-                        fheroes2::Blit( scaled, display, card.x + ( card.width - dw ) / 2, card.y + 19 + ( maxH - dh ) / 2 );
-                    }
-                }
+                fheroes2::drawFittedSprite3DS( monSpr, display, { card.x + 6, card.y + 19, card.width - 12, 66 } );
                 if ( advanceAnim ) {
                     monsterAnimInfo[i].increment();
                 }

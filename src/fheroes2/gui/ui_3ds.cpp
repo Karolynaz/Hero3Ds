@@ -197,6 +197,101 @@ namespace fheroes2
         return button;
     }
 
+    void drawFittedSprite3DS( const Image & src, Image & dst, const Rect & area )
+    {
+        if ( src.empty() || src.width() <= 0 || src.height() <= 0 || area.width <= 0 || area.height <= 0 ) {
+            return;
+        }
+
+        int32_t cropX = 0;
+        int32_t cropY = 0;
+        int32_t cropW = src.width();
+        int32_t cropH = src.height();
+
+        // Trim transparent padding and discard isolated stray 1-2px ICN artifacts (e.g. ranged projectile dots)
+        // separated from the dense main creature body by a >= 6px empty gap.
+        if ( !src.singleLayer() ) {
+            const uint8_t * tr = src.transform();
+            const int32_t w = src.width();
+            const int32_t h = src.height();
+            std::vector<int32_t> colCounts( w, 0 );
+            std::vector<int32_t> rowCounts( h, 0 );
+            for ( int32_t y = 0; y < h; ++y ) {
+                const uint8_t * row = tr + static_cast<size_t>( y ) * w;
+                for ( int32_t x = 0; x < w; ++x ) {
+                    if ( row[x] != 1 ) {
+                        ++colCounts[x];
+                        ++rowCounts[y];
+                    }
+                }
+            }
+            const auto findCoreSpan = []( const std::vector<int32_t> & counts ) -> std::pair<int32_t, int32_t> {
+                const int32_t n = static_cast<int32_t>( counts.size() );
+                int32_t peakIdx = 0;
+                for ( int32_t i = 1; i < n; ++i ) {
+                    if ( counts[i] > counts[peakIdx] ) {
+                        peakIdx = i;
+                    }
+                }
+                if ( counts[peakIdx] == 0 ) {
+                    return { 0, n - 1 };
+                }
+                int32_t lo = peakIdx;
+                int32_t gap = 0;
+                for ( int32_t i = peakIdx - 1; i >= 0; --i ) {
+                    if ( counts[i] > 0 ) {
+                        if ( gap >= 6 && counts[i] <= 3 ) {
+                            break;
+                        }
+                        lo = i;
+                        gap = 0;
+                    }
+                    else {
+                        ++gap;
+                    }
+                }
+                int32_t hi = peakIdx;
+                gap = 0;
+                for ( int32_t i = peakIdx + 1; i < n; ++i ) {
+                    if ( counts[i] > 0 ) {
+                        if ( gap >= 6 && counts[i] <= 3 ) {
+                            break;
+                        }
+                        hi = i;
+                        gap = 0;
+                    }
+                    else {
+                        ++gap;
+                    }
+                }
+                return { lo, hi };
+            };
+
+            const auto [minX, maxX] = findCoreSpan( colCounts );
+            const auto [minY, maxY] = findCoreSpan( rowCounts );
+            cropX = minX;
+            cropY = minY;
+            cropW = std::max<int32_t>( 1, maxX - minX + 1 );
+            cropH = std::max<int32_t>( 1, maxY - minY + 1 );
+        }
+
+        const Sprite cropped = ( cropX == 0 && cropY == 0 && cropW == src.width() && cropH == src.height() ) ? Sprite() : Crop( src, cropX, cropY, cropW, cropH );
+        const Image & drawSrc = cropped.empty() ? src : static_cast<const Image &>( cropped );
+
+        if ( drawSrc.width() <= area.width && drawSrc.height() <= area.height ) {
+            Blit( drawSrc, dst, area.x + ( area.width - drawSrc.width() ) / 2, area.y + ( area.height - drawSrc.height() ) / 2 );
+            return;
+        }
+
+        const double scale = std::min( static_cast<double>( area.width ) / drawSrc.width(), static_cast<double>( area.height ) / drawSrc.height() );
+        const int32_t dw = std::max<int32_t>( 1, static_cast<int32_t>( drawSrc.width() * scale ) );
+        const int32_t dh = std::max<int32_t>( 1, static_cast<int32_t>( drawSrc.height() * scale ) );
+        Image scaled( dw, dh );
+        scaled.reset();
+        Resize( drawSrc, scaled );
+        Blit( scaled, dst, area.x + ( area.width - dw ) / 2, area.y + ( area.height - dh ) / 2 );
+    }
+
     int show3DSMenu( const std::string & title, const std::vector<std::string> & labels, const std::vector<bool> & enabled, const bool cancel,
                      const std::string & information, const int initialSelection )
     {
@@ -263,7 +358,7 @@ namespace fheroes2
         for ( size_t i = 0; i < labels.size(); ++i ) {
             const int row = static_cast<int>( i ) / columns;
             const int col = static_cast<int>( i ) % columns;
-            const Rect area( columns == 1 ? 24 : 12 + col * 154, 279 + row * ( height + 6 ), columns == 1 ? 272 : 142, height );
+            const Rect area( columns == 1 ? 24 : 8 + col * 156, 279 + row * ( height + 6 ), columns == 1 ? 272 : 148, height );
             buttons.emplace_back( std::make_unique<ButtonSprite>( make3DSButton( labels[i], area ) ) );
             if ( i < enabled.size() && !enabled[i] )
                 buttons.back()->disable();
@@ -319,6 +414,7 @@ namespace fheroes2
         auto & conf = Settings::Get();
         bool changed = false;
         int page = 0;
+        int initialFocus = 0;
         while ( true ) {
             const std::string information = std::string( _( "Music" ) ) + ": " + std::to_string( conf.MusicVolume() ) + "/10\n" + _( "Effects" ) + ": "
                                             + std::to_string( conf.SoundVolume() ) + "/10\n\n" + _( "Select a volume to change it. Values cycle from 0 (off) to 10." );
@@ -330,14 +426,16 @@ namespace fheroes2
                                                                          + ( conf.MusicType() == MUSIC_EXTERNAL ? _( "External" ) : _( "MIDI" ) ),
                                                                      _( "3D Audio" ) + std::string( ": " ) + ( conf.is3DAudioEnabled() ? _( "On" ) : _( "Off" ) ),
                                                                      _( "Back" ) },
-                               {}, true, information );
+                               {}, true, information, initialFocus );
             if ( choice < 0 ) {
                 return changed;
             }
             if ( choice == 2 ) {
                 page = 1 - page;
+                initialFocus = 0;
                 continue;
             }
+            initialFocus = choice;
             if ( page == 0 && choice == 0 ) {
                 conf.SetMusicVolume( ( conf.MusicVolume() + 1 ) % 11 );
                 Music::setVolume( 100 * conf.MusicVolume() / 10 );
@@ -368,10 +466,12 @@ namespace fheroes2
     {
         auto & conf = Settings::Get();
         int page = 0;
+        int initialFocus = 0;
         bool changed = false;
         while ( true ) {
             std::vector<std::string> labels;
             std::string information;
+            const std::string & lang = conf.getGameLanguage().empty() ? std::string( _( "English" ) ) : conf.getGameLanguage();
             if ( page == 0 ) {
                 labels = { _( "Language" ), _( "Audio Settings" ), _( "Controls" ), _( "Next page" ) };
                 information = _(
@@ -384,15 +484,18 @@ namespace fheroes2
                                                                                      : _( "Good" ) ),
                            _( "Cursor" ) + std::string( ": " ) + ( conf.isMonochromeCursorEnabled() ? _( "Black & White" ) : _( "Color" ) ),
                            _( "Text Support Mode" ) + std::string( ": " ) + ( conf.isTextSupportModeEnabled() ? _( "On" ) : _( "Off" ) ), _( "Next page" ) };
-                information = std::string( _( "Language" ) ) + ": " + conf.getGameLanguage() + "\n\n"
+                information = std::string( _( "Language" ) ) + ": " + lang + "\n\n"
                               + _( "Change the interface theme, pointer appearance, or text support mode." );
             }
             else if ( page == 2 ) {
+                const std::string battleState
+                    = conf.BattleAutoResolve() ? ( conf.BattleAutoSpellcast() ? _( "Auto" ) : _( "Auto (No Spells)" ) ) : _( "Manual" );
                 labels = { _( "Hero Speed" ) + std::string( ": " ) + std::to_string( conf.HeroesMoveSpeed() ),
-                           _( "Enemy Speed" ) + std::string( ": " ) + std::to_string( conf.AIMoveSpeed() ), _( "Battles" ), _( "Next page" ) };
+                           _( "Enemy Speed" ) + std::string( ": " ) + std::to_string( conf.AIMoveSpeed() ),
+                           _( "Battles" ) + std::string( ": " ) + battleState, _( "Next page" ) };
                 information = std::string( _( "Hero Speed" ) ) + ": " + std::to_string( conf.HeroesMoveSpeed() ) + "/10\n" + _( "Enemy Speed" ) + ": "
-                              + std::to_string( conf.AIMoveSpeed() ) + "/10\n\n" + _( "Battles" ) + ": " + ( conf.BattleAutoResolve() ? _( "Auto" ) : _( "Manual" ) )
-                              + "\n" + _( "Each selection cycles to the next setting." );
+                              + std::to_string( conf.AIMoveSpeed() ) + "/10\n\n" + _( "Battles" ) + ": " + battleState + "\n"
+                              + _( "Each selection cycles to the next setting." );
             }
             else {
                 labels = { _( "Battle Speed" ) + std::string( ": " ) + std::to_string( conf.BattleSpeed() ),
@@ -400,14 +503,16 @@ namespace fheroes2
                            _( "Damage Info" ) + std::string( ": " ) + ( conf.isBattleShowDamageInfoEnabled() ? _( "On" ) : _( "Off" ) ), _( "First page" ) };
                 information = _( "Adjust battle animation speed, show the battlefield grid, or display attack damage information." );
             }
-            const int choice = show3DSMenu( _( "Settings" ), labels, {}, true, information );
+            const int choice = show3DSMenu( _( "Settings" ), labels, {}, true, information, initialFocus );
             if ( choice < 0 ) {
                 break;
             }
             if ( choice == 3 ) {
                 page = ( page + 1 ) % 4;
+                initialFocus = 0;
                 continue;
             }
+            initialFocus = choice;
             if ( page == 0 && choice == 0 ) {
                 const auto languages = getSupportedLanguages();
                 if ( !languages.empty() ) {
@@ -439,8 +544,10 @@ namespace fheroes2
                 changed |= show3DSAudioSettings( fromAdventureMap );
             }
             else if ( page == 0 ) {
-                showStandardTextMessage( _( "Controls" ), _( "Circle Pad moves the pointer. D-pad moves the camera or selects buttons. A confirms. B cancels." ),
-                                         Dialog::OK );
+                showStandardTextMessage(
+                    _( "Controls" ),
+                    _( "Circle Pad moves the pointer. D-pad pans camera or selects buttons. A confirms, B cancels.\nWorld: Y Hero, L Town, R Move, X End Turn, Select File.\nBattle: X Spell, Y Skip, L/R Pan, Select Options." ),
+                    Dialog::OK );
             }
             else if ( page == 1 ) {
                 if ( choice == 0 ) {

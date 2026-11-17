@@ -401,22 +401,7 @@ namespace
         if ( !animInfo.animationFrames[Bin_Info::MonsterAnimInfo::STATIC].empty() ) {
             const fheroes2::Sprite & monSpr
                 = Assets::getImage( mon.GetMonsterSprite(), animInfo.animationFrames[Bin_Info::MonsterAnimInfo::STATIC][0] );
-            if ( !monSpr.empty() && monSpr.width() > 0 && monSpr.height() > 0 ) {
-                const int32_t maxW = box.width - 4;
-                const int32_t maxH = box.height - 4;
-                if ( monSpr.width() <= maxW && monSpr.height() <= maxH ) {
-                    fheroes2::Blit( monSpr, dst, box.x + ( box.width - monSpr.width() ) / 2, box.y + ( box.height - monSpr.height() ) / 2 );
-                }
-                else {
-                    const double scale = std::min( static_cast<double>( maxW ) / monSpr.width(), static_cast<double>( maxH ) / monSpr.height() );
-                    const int32_t dstW = std::max<int32_t>( 1, static_cast<int32_t>( monSpr.width() * scale ) );
-                    const int32_t dstH = std::max<int32_t>( 1, static_cast<int32_t>( monSpr.height() * scale ) );
-                    fheroes2::Image scaled( dstW, dstH );
-                    scaled.reset();
-                    fheroes2::Resize( monSpr, scaled );
-                    fheroes2::Blit( scaled, dst, box.x + ( box.width - dstW ) / 2, box.y + ( box.height - dstH ) / 2 );
-                }
-            }
+            fheroes2::drawFittedSprite3DS( monSpr, dst, { box.x + 2, box.y + 2, box.width - 4, box.height - 4 } );
         }
 
         // Creature combat & recruitment stats on right
@@ -1149,8 +1134,8 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
                     if ( selTitleTxt.width() > rightArea.width ) {
                         selTitleTxt.fitToOneRow( rightArea.width );
                     }
-                    selTitleTxt.draw( rightArea.x + ( rightArea.width - selTitleTxt.width() ) / 2, 328, display );
-                    descBoxRect = { rightArea.x, 340, rightArea.width, 34 };
+                    selTitleTxt.draw( rightArea.x + ( rightArea.width - selTitleTxt.width() ) / 2, 331, display );
+                    descBoxRect = { rightArea.x, 343, rightArea.width, 32 };
                 }
                 else if ( ( sel.baseType & DWELLING_MONSTERS ) != 0 ) {
                     drawCreaturePreview3DS( display, { rightArea.x, 250, rightArea.width, 70 }, *this, sel.info.getBuilding() );

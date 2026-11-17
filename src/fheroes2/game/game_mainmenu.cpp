@@ -310,13 +310,18 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
     }
 
     while ( true ) {
-        const int choice = fheroes2::show3DSMenu( _( "Heroes of Might and Magic II" ), { _( "New Game" ), _( "Load Game" ), _( "Settings" ) }, {}, true );
+        const int choice = fheroes2::show3DSMenu( _( "Heroes of Might and Magic II" ),
+                                                  { _( "New Game" ), _( "Load Game" ), _( "High Scores" ), _( "Credits" ), _( "Settings" ) }, {}, true );
         switch ( choice ) {
         case 0:
             return fheroes2::GameMode::NEW_GAME;
         case 1:
             return fheroes2::GameMode::LOAD_GAME;
         case 2:
+            return fheroes2::GameMode::HIGHSCORES_STANDARD;
+        case 3:
+            return fheroes2::GameMode::CREDITS;
+        case 4:
             fheroes2::openGameSettings();
             return fheroes2::GameMode::MAIN_MENU;
         default:
