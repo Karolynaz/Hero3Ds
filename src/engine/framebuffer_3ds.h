@@ -284,11 +284,11 @@ namespace fheroes2::threeDS
                 copy( top, 320, 0, 2, 40, image );
             }
             // Compose a clean 320px native footer at the bottom edge of the lower
-            // display: left controls (0..41), centered Status (202..437 -> 42..277),
-            // and right Skip button (598..639 -> 278..319) without splitting text.
-            copyNative( bottom, 0, battle->footerY, 42, footerH, 0, splitY, footer, imageWidth, imageHeight );
-            copyNative( bottom, 202, battle->footerY, 236, footerH, 42, splitY, footer, imageWidth, imageHeight );
-            copyNative( bottom, 598, battle->footerY, 42, footerH, 278, splitY, footer, imageWidth, imageHeight );
+            // display: left controls (0..45), centered Status (206..433 -> 46..273),
+            // and right Skip button (594..639 -> 274..319) without splitting text.
+            copyNative( bottom, 0, battle->footerY, 46, footerH, 0, splitY, footer, imageWidth, imageHeight );
+            copyNative( bottom, 206, battle->footerY, 228, footerH, 46, splitY, footer, imageWidth, imageHeight );
+            copyNative( bottom, 594, battle->footerY, 46, footerH, 274, splitY, footer, imageWidth, imageHeight );
         }
         else if ( castle && castle->mainView ) {
             copyScaledFast( top, 400, 240, 0, 0, 0, std::min( imageWidth, 640 ), std::min( imageHeight, 256 ) );

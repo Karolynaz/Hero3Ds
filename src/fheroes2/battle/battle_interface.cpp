@@ -1146,7 +1146,7 @@ Battle::Status::Status()
 void Battle::Status::setMessage( std::string messageString, const bool top )
 {
 #if defined( TARGET_NINTENDO_3DS )
-    const int32_t maxRowWidth = std::min<int32_t>( width - offsetForTextBar * 2, 228 );
+    const int32_t maxRowWidth = std::min<int32_t>( width - offsetForTextBar * 2, 220 );
 #else
     const int32_t maxRowWidth = width - offsetForTextBar * 2;
 #endif

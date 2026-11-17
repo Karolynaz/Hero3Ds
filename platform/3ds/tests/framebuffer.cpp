@@ -123,14 +123,14 @@ int main()
     // Battle split: 400x240 native top cropped at camera + scaled battlefield overview above 44px centered footer.
     std::vector<uint8_t> battleImage( 640 * 480, 1 );
     for ( int y = 436; y < 480; ++y ) {
-        std::fill( battleImage.begin() + y * 640, battleImage.begin() + y * 640 + 42, 2 );
-        std::fill( battleImage.begin() + y * 640 + 42, battleImage.begin() + y * 640 + 598, 4 );
-        std::fill( battleImage.begin() + y * 640 + 202, battleImage.begin() + y * 640 + 438, 3 );
-        std::fill( battleImage.begin() + y * 640 + 598, battleImage.begin() + y * 640 + 640, 2 );
+        std::fill( battleImage.begin() + y * 640, battleImage.begin() + y * 640 + 46, 2 );
+        std::fill( battleImage.begin() + y * 640 + 46, battleImage.begin() + y * 640 + 594, 4 );
+        std::fill( battleImage.begin() + y * 640 + 206, battleImage.begin() + y * 640 + 434, 3 );
+        std::fill( battleImage.begin() + y * 640 + 594, battleImage.begin() + y * 640 + 640, 2 );
     }
     const BattleFrame battleView{ true, 120, 40, 436, 44, nullptr };
     renderFramebuffers( battleImage.data(), 640, 480, palette, top.data() + 1, bottom.data() + 1, false, nullptr, &battleView );
     assert( pixel( top, 0, 0 ) == 0x112233 && pixel( bottom, 10, 10 ) == 0x112233 );
-    assert( pixel( bottom, 0, 196 ) == 0xABCDEF && pixel( bottom, 42, 196 ) == 0x010203 && pixel( bottom, 277, 196 ) == 0x010203 );
-    assert( pixel( bottom, 278, 196 ) == 0xABCDEF && pixel( bottom, 319, 239 ) == 0xABCDEF );
+    assert( pixel( bottom, 0, 196 ) == 0xABCDEF && pixel( bottom, 46, 196 ) == 0x010203 && pixel( bottom, 273, 196 ) == 0x010203 );
+    assert( pixel( bottom, 274, 196 ) == 0xABCDEF && pixel( bottom, 319, 239 ) == 0xABCDEF );
 }

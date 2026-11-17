@@ -135,11 +135,11 @@ int Heroes::OpenDialog( const bool readonly, const bool fade, const bool disable
             fheroes2::register3DSDialogButton( &cellIds[5 + index], { 20 + static_cast<int32_t>( index % 7 ) * 41, 339 + static_cast<int32_t>( index / 7 ) * 39, 34, 34 },
                                                true );
         }
-        auto previous = fheroes2::make3DSButton( _( "Prev" ), { 6, 442, 48, 32 } );
-        auto next = fheroes2::make3DSButton( _( "Next" ), { 58, 442, 48, 32 } );
-        auto skills = fheroes2::make3DSButton( _( "Skills" ), { 110, 442, 62, 32 } );
-        auto dismiss = fheroes2::make3DSButton( _( "Dismiss" ), { 176, 442, 82, 32 } );
-        auto exit = fheroes2::make3DSButton( _( "Exit" ), { 262, 442, 52, 32 } );
+        auto previous = fheroes2::make3DSButton( _( "Prev" ), { 4, 442, 54, 32 } );
+        auto next = fheroes2::make3DSButton( _( "Next" ), { 62, 442, 54, 32 } );
+        auto skills = fheroes2::make3DSButton( _( "Skills" ), { 120, 442, 58, 32 } );
+        auto dismiss = fheroes2::make3DSButton( _( "Dismiss" ), { 182, 442, 78, 32 } );
+        auto exit = fheroes2::make3DSButton( _( "Exit" ), { 264, 442, 52, 32 } );
         if ( readonly || disableSwitch || GetKingdom().GetHeroes().size() < 2 ) {
             previous.disable();
             next.disable();

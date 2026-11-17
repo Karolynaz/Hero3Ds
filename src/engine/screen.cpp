@@ -1574,13 +1574,13 @@ namespace fheroes2
                      std::clamp<int>( bottomPoint.y * battle3DSFooter.y / splitY, 0, battle3DSFooter.y - 1 ) };
         }
         const int rowY = battle3DSFooter.y + std::clamp<int>( bottomPoint.y - splitY, 0, footerH - 1 );
-        if ( bottomPoint.x < 42 ) {
+        if ( bottomPoint.x < 46 ) {
             return { bottomPoint.x, rowY };
         }
-        if ( bottomPoint.x >= 278 ) {
-            return { 598 + ( bottomPoint.x - 278 ), rowY };
+        if ( bottomPoint.x >= 274 ) {
+            return { 594 + ( bottomPoint.x - 274 ), rowY };
         }
-        return { 202 + ( bottomPoint.x - 42 ), rowY };
+        return { 206 + ( bottomPoint.x - 46 ), rowY };
     }
     const uint8_t * get3DSBattleSnapshot()
     {
