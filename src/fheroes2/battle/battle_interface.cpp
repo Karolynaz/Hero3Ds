@@ -78,6 +78,9 @@
 #include "tools.h"
 #include "translations.h"
 #include "ui_constants.h"
+#if defined( TARGET_NINTENDO_3DS )
+#include "ui_3ds.h"
+#endif
 #include "ui_dialog.h"
 #include "ui_scrollbar.h"
 #include "ui_tool.h"
@@ -3214,7 +3217,11 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
         }
         // Battle options
         else if ( Game::HotKeyPressEvent( Game::HotKeyEvent::BATTLE_OPTIONS ) ) {
+#if defined( TARGET_NINTENDO_3DS )
+            _open3DSBattleMenu( unit, actions );
+#else
             EventShowOptions();
+#endif
         }
         // Toggle the display of the battle turn order
         else if ( Game::HotKeyPressEvent( Game::HotKeyEvent::BATTLE_TOGGLE_TURN_ORDER_DISPLAY ) ) {
@@ -3605,6 +3612,73 @@ void Battle::Interface::FadeArena( const bool clearMessageLog )
 
 void Battle::Interface::_openBattleSettingsDialog()
 {
+#if defined( TARGET_NINTENDO_3DS )
+    Settings & conf = Settings::Get();
+    const bool showGrid = conf.BattleShowGrid();
+    bool changed = false;
+    int initialFocus = 0;
+
+    while ( true ) {
+        std::string turnOrderText = _( "Off" );
+        switch ( conf.getBattleTurnOrderState() ) {
+        case BattleTurnOrderState::TOP:
+            turnOrderText = _( "Top" );
+            break;
+        case BattleTurnOrderState::BOTTOM:
+            turnOrderText = _( "Bottom" );
+            break;
+        default:
+            break;
+        }
+
+        const std::vector<std::string> labels{ _( "Battle Speed" ) + std::string( ": " ) + std::to_string( conf.BattleSpeed() ),
+                                               _( "Grid" ) + std::string( ": " ) + ( conf.BattleShowGrid() ? _( "On" ) : _( "Off" ) ),
+                                               _( "Damage Info" ) + std::string( ": " ) + ( conf.isBattleShowDamageInfoEnabled() ? _( "On" ) : _( "Off" ) ),
+                                               _( "Turn Order" ) + std::string( ": " ) + turnOrderText,
+                                               _( "Auto Spells" ) + std::string( ": " ) + ( conf.BattleAutoSpellcast() ? _( "On" ) : _( "Off" ) ),
+                                               _( "Audio Settings" ) };
+
+        const std::string information = _( "Customize battle speed, grid visibility, damage popup, turn order bar, or audio." );
+        const int choice = fheroes2::show3DSMenu( _( "Battle Settings" ), labels, {}, true, information, initialFocus );
+        if ( choice < 0 ) {
+            break;
+        }
+
+        initialFocus = choice;
+        if ( choice == 0 ) {
+            conf.SetBattleSpeed( conf.BattleSpeed() % 10 + 1 );
+            Game::UpdateGameSpeed();
+            changed = true;
+        }
+        else if ( choice == 1 ) {
+            conf.SetBattleGrid( !conf.BattleShowGrid() );
+            changed = true;
+        }
+        else if ( choice == 2 ) {
+            conf.setBattleDamageInfo( !conf.isBattleShowDamageInfoEnabled() );
+            changed = true;
+        }
+        else if ( choice == 3 ) {
+            conf.switchToNextBattleTurnOrderState();
+            changed = true;
+        }
+        else if ( choice == 4 ) {
+            conf.setBattleAutoSpellcast( !conf.BattleAutoSpellcast() );
+            changed = true;
+        }
+        else {
+            changed |= fheroes2::show3DSAudioSettings( false );
+        }
+    }
+
+    if ( changed ) {
+        conf.Save( Settings::configFileName );
+    }
+
+    if ( showGrid != conf.BattleShowGrid() ) {
+        _redrawBattleGround();
+    }
+#else
     const Settings & conf = Settings::Get();
     const bool showGrid = conf.BattleShowGrid();
     const bool isTurnOrderInsideWindow{ TurnOrder::isRenderingInsideBattlefieldWindow( border.GetRect() ) };
@@ -3615,7 +3689,61 @@ void Battle::Interface::_openBattleSettingsDialog()
         // The grid setting has changed. Update for the Battlefield ground.
         _redrawBattleGround();
     }
+#endif
 }
+
+#if defined( TARGET_NINTENDO_3DS )
+void Battle::Interface::_open3DSBattleMenu( const Unit & unit, Actions & actions )
+{
+    Cursor::Get().SetThemes( Cursor::POINTER );
+    const HeroBase * currentHero = unit.GetCurrentOrArmyCommander();
+    const bool canCast = ( currentHero != nullptr ) && currentHero->HaveSpellBook();
+    const bool canAuto = arena.CanToggleAutoCombat() && !arena.AutoCombatInProgress();
+    const bool canRetreat = arena.CanRetreatOpponent( unit.GetCurrentOrArmyColor() );
+    const bool canSurrender = arena.CanSurrenderOpponent( unit.GetCurrentOrArmyColor() );
+
+    const std::vector<std::string> labels{ _( "Cast Spell" ), _( "Auto Combat" ), _( "Quick Combat" ), _( "Battle Settings" ), _( "Retreat" ), _( "Surrender" ) };
+    const std::vector<bool> enabled{ canCast, canAuto, canAuto, true, canRetreat, canSurrender };
+
+    int initialFocus = 0;
+    while ( true ) {
+        const int choice = fheroes2::show3DSMenu( _( "Battle Options" ), labels, enabled, true, _( "Choose a battle action or open settings." ), initialFocus );
+        if ( choice < 0 ) {
+            return;
+        }
+        initialFocus = choice;
+
+        if ( choice == 0 ) {
+            ProcessingHeroDialogResult( 1, actions );
+            _needRedraw = true;
+            return;
+        }
+        if ( choice == 1 ) {
+            _startAutoCombat( unit, actions );
+            return;
+        }
+        if ( choice == 2 ) {
+            _quickCombat( actions );
+            return;
+        }
+        if ( choice == 3 ) {
+            _openBattleSettingsDialog();
+            _needRedraw = true;
+            continue;
+        }
+        if ( choice == 4 ) {
+            ProcessingHeroDialogResult( 2, actions );
+            _needRedraw = true;
+            return;
+        }
+        if ( choice == 5 ) {
+            ProcessingHeroDialogResult( 3, actions );
+            _needRedraw = true;
+            return;
+        }
+    }
+}
+#endif
 
 void Battle::Interface::EventShowOptions()
 {

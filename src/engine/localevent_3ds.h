@@ -366,22 +366,23 @@ namespace EventProcessing
             if ( !castleBuildView ) {
                 if ( down & KEY_A )
                     events.onMouseButtonEvent( true, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, events.getMouseCursorPos() );
-                if ( up & KEY_A )
-                    events.onMouseButtonEvent( false, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, events.getMouseCursorPos() );
+                if ( down & KEY_R )
+                    events.onMouseButtonEvent( true, LocalEvent::MouseButtonType::MOUSE_BUTTON_RIGHT, events.getMouseCursorPos() );
             }
+            if ( up & KEY_A )
+                events.onMouseButtonEvent( false, LocalEvent::MouseButtonType::MOUSE_BUTTON_LEFT, events.getMouseCursorPos() );
+            if ( up & KEY_R )
+                events.onMouseButtonEvent( false, LocalEvent::MouseButtonType::MOUSE_BUTTON_RIGHT, events.getMouseCursorPos() );
 
             fheroes2::Key key = fheroes2::Key::NONE;
             const bool adventureView = !nativeDialog && !battleView && !castleView && !castleSubView && !castleBuildView && fheroes2::is3DSAdventureLayout();
             if ( battleView && ( down & KEY_L ) ) {
-                fheroes2::pan3DSBattleCamera( { -120, 0 } );
+                const auto camera = fheroes2::get3DSBattleCamera();
+                fheroes2::pan3DSBattleCamera( { camera.x < 120 ? ( 240 - camera.x ) : -camera.x, 0 } );
                 updateDisplay = true;
             }
-            if ( battleView && ( down & KEY_R ) ) {
-                fheroes2::pan3DSBattleCamera( { 120, 0 } );
-                updateDisplay = true;
-            }
-            if ( ( down & KEY_SELECT ) && ( battleView || adventureView ) ) {
-                key = battleView ? fheroes2::Key::KEY_O : fheroes2::Key::KEY_F;
+            if ( ( down & KEY_SELECT ) && ( battleView || adventureView || castleView ) ) {
+                key = adventureView ? fheroes2::Key::KEY_F : fheroes2::Key::KEY_O;
             }
             else if ( ( down & ( KEY_B | KEY_SELECT ) ) && ( !nativeDialog || fheroes2::is3DSDialogClosable() ) )
                 key = fheroes2::Key::KEY_ESCAPE;
@@ -393,8 +394,12 @@ namespace EventProcessing
                 key = fheroes2::Key::KEY_PAGE_DOWN;
             else if ( adventureView && ( down & KEY_L ) )
                 key = fheroes2::Key::KEY_T;
-            else if ( adventureView && ( down & KEY_R ) )
-                key = fheroes2::Key::KEY_M;
+            else if ( castleView && ( down & KEY_L ) )
+                key = fheroes2::Key::KEY_RIGHT;
+            else if ( castleView && ( down & KEY_X ) )
+                key = fheroes2::Key::KEY_B;
+            else if ( castleView && ( down & KEY_Y ) )
+                key = fheroes2::Key::KEY_W;
             else if ( down & KEY_X )
                 key = battleView ? fheroes2::Key::KEY_C : fheroes2::Key::KEY_E;
             else if ( down & KEY_Y )

@@ -61,6 +61,9 @@
 #include "tools.h"
 #include "translations.h"
 #include "ui_button.h"
+#if defined( TARGET_NINTENDO_3DS )
+#include "ui_3ds.h"
+#endif
 #include "ui_castle.h"
 #include "ui_constants.h"
 #include "ui_dialog.h"
@@ -634,8 +637,71 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
                 needRedraw = true;
             }
 
-            // Get pressed hotkey.
-            const BuildingType hotKeyBuilding = getPressedBuildingHotkey();
+            // Get pressed hotkey or 3DS Quick Facility Menu selection.
+            BuildingType hotKeyBuilding = getPressedBuildingHotkey();
+
+#if defined( TARGET_NINTENDO_3DS )
+            if ( le.isKeyPressed( fheroes2::Key::KEY_O ) ) {
+                const fheroes2::ButtonRestorer exitRestorer( buttonExit );
+                struct CastleMenuItem
+                {
+                    std::string label;
+                    BuildingType building{ BUILD_NOTHING };
+                    bool showIncome{ false };
+                    bool nextTown{ false };
+                };
+                std::vector<CastleMenuItem> items;
+                if ( isBuild( BUILD_CASTLE ) ) {
+                    items.push_back( { _( "Build / Upgrade" ), BUILD_CASTLE } );
+                }
+                else if ( !isBuildingDisabled( BUILD_CASTLE ) ) {
+                    items.push_back( { _( "Build Castle" ), BUILD_TENT } );
+                }
+                if ( isBuild( BUILD_WELL ) ) {
+                    items.push_back( { _( "Well" ), BUILD_WELL } );
+                }
+                if ( GetLevelMageGuild() > 0 ) {
+                    items.push_back( { _( "Mage Guild" ), BUILD_MAGEGUILD } );
+                }
+                if ( isBuild( BUILD_MARKETPLACE ) ) {
+                    items.push_back( { _( "Marketplace" ), BUILD_MARKETPLACE } );
+                }
+                if ( isBuild( BUILD_TAVERN ) ) {
+                    items.push_back( { _( "Tavern" ), BUILD_TAVERN } );
+                }
+                if ( isBuild( BUILD_THIEVESGUILD ) ) {
+                    items.push_back( { _( "Thieves' Guild" ), BUILD_THIEVESGUILD } );
+                }
+                if ( isBuild( BUILD_SHIPYARD ) ) {
+                    items.push_back( { _( "Shipyard" ), BUILD_SHIPYARD } );
+                }
+                items.push_back( { _( "Kingdom Income" ), BUILD_NOTHING, true, false } );
+                if ( buttonNextCastle.isEnabled() ) {
+                    items.push_back( { _( "Next Town" ), BUILD_NOTHING, false, true } );
+                }
+
+                std::vector<std::string> labels;
+                labels.reserve( items.size() );
+                for ( const auto & entry : items ) {
+                    labels.push_back( entry.label );
+                }
+
+                const int choice = fheroes2::show3DSMenu( GetName(), labels, {}, true, _( "Select a town facility or action." ) );
+                if ( choice >= 0 && static_cast<size_t>( choice ) < items.size() ) {
+                    const auto & chosen = items[choice];
+                    if ( chosen.showIncome ) {
+                        fheroes2::showKingdomIncome( GetKingdom(), Dialog::OK );
+                    }
+                    else if ( chosen.nextTown ) {
+                        result = CastleDialogReturnValue::NextCastle;
+                        break;
+                    }
+                    else {
+                        hotKeyBuilding = chosen.building;
+                    }
+                }
+            }
+#endif
 
             // Interaction with buildings.
             // Animation queue starts from the lowest by Z-value buildings which means that they draw first and most likely overlap by the top buildings in the queue.
@@ -671,7 +737,8 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
 
                 const bool isMagicGuild = ( BUILD_MAGEGUILD & it->id ) != 0;
 
-                bool isBuildingClicked = ( hotKeyBuilding == it->id || ( isMagicGuild && hotKeyBuilding == BUILD_MAGEGUILD ) );
+                bool isBuildingClicked = ( hotKeyBuilding == it->id || ( isMagicGuild && hotKeyBuilding == BUILD_MAGEGUILD )
+                                           || ( hotKeyBuilding == BUILD_CASTLE && !isBuild( BUILD_CASTLE ) && it->id == BUILD_TENT ) );
                 if ( !isBuildingClicked ) {
                     for ( const auto & area : it->areas ) {
                         if ( le.MouseClickLeft( area ) ) {

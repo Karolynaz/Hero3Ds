@@ -475,6 +475,9 @@ namespace Battle
         void ProcessingHeroDialogResult( const int result, Actions & actions );
 
         void _openBattleSettingsDialog();
+#if defined( TARGET_NINTENDO_3DS )
+        void _open3DSBattleMenu( const Unit & unit, Actions & actions );
+#endif
         void OpenAutoModeDialog( const Unit & unit, Actions & actions );
         void EventShowOptions();
         void MouseLeftClickBoardAction( const int themes, const Cell & cell, const bool isConfirmed, Actions & actions );

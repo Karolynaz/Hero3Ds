@@ -546,7 +546,7 @@ namespace fheroes2
             else if ( page == 0 ) {
                 showStandardTextMessage(
                     _( "Controls" ),
-                    _( "Circle Pad moves the pointer. D-pad pans camera or selects buttons. A confirms, B cancels.\nWorld: Y Hero, L Town, R Move, X End Turn, Select File.\nBattle: X Spell, Y Skip, L/R Pan, Select Options." ),
+                    _( "Circle Pad: pointer | D-pad: pan/menu | A: confirm | B: back | R: inspect.\nWorld: Y Hero, L Town, X End Turn, Select File.\nCastle: X Build, Y Well, L Town, Select Menu.\nBattle: L Side, X Spell, Y Skip, Select Menu." ),
                     Dialog::OK );
             }
             else if ( page == 1 ) {
