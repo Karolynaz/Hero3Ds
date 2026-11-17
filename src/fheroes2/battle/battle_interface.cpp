@@ -3783,6 +3783,17 @@ void Battle::Interface::OpenAutoModeDialog( const Unit & unit, Actions & actions
 {
     Cursor::Get().SetThemes( Cursor::POINTER );
 
+#if defined( TARGET_NINTENDO_3DS )
+    const std::string info = _( "Auto Combat lets the computer fight turn by turn (press B to interrupt).\n\nQuick Combat resolves the battle immediately." );
+    const int choice = fheroes2::show3DSMenu( _( "Automatic Combat Modes" ), { _( "Auto Combat" ), _( "Quick Combat" ) }, {}, true, info );
+    if ( choice == 0 ) {
+        _startAutoCombat( unit, actions );
+    }
+    else if ( choice == 1 ) {
+        _quickCombat( actions );
+    }
+    return;
+#else
     const fheroes2::FontType buttonFontType = fheroes2::FontType::buttonReleasedWhite();
     fheroes2::ButtonGroup autoButtons(
         { fheroes2::getSupportedText( gettext_noop( "AUTO\nCOMBAT" ), buttonFontType ), fheroes2::getSupportedText( gettext_noop( "QUICK\nCOMBAT" ), buttonFontType ) } );
@@ -3848,6 +3859,7 @@ void Battle::Interface::OpenAutoModeDialog( const Unit & unit, Actions & actions
             fheroes2::showStandardTextMessage( _( "Quick Combat" ), msg, Dialog::ZERO );
         }
     }
+#endif
 }
 
 bool Battle::Interface::MousePressRightBoardAction( const Cell & cell ) const

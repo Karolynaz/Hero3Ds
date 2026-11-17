@@ -303,6 +303,9 @@ private:
 void Heroes::MeetingDialog( Heroes & otherHero )
 {
     fheroes2::Display & display = fheroes2::Display::instance();
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSCastleView meetingView3DS( true );
+#endif
 
     // Set the cursor image. This dialog is called after hero's move and does not require a cursor restorer:
     // Game Area event processor will change it to the appropriate one after this dialog is closed.

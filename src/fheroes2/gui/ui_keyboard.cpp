@@ -31,6 +31,10 @@
 #include <utility>
 #include <vector>
 
+#if defined( TARGET_NINTENDO_3DS )
+#include <3ds.h>
+#endif
+
 #include "dialog.h"
 #include "game_assets.h"
 #include "game_hotkeys.h"
@@ -1104,6 +1108,26 @@ namespace fheroes2
 {
     void openVirtualKeyboard( std::string & output, size_t lengthLimit )
     {
+#if defined( TARGET_NINTENDO_3DS )
+        SwkbdState swkbd{};
+        const int maxLen = static_cast<int>( lengthLimit == 0 ? 127 : std::min<size_t>( lengthLimit, 127 ) );
+        swkbdInit( &swkbd, SWKBD_TYPE_NORMAL, 2, maxLen );
+        if ( !output.empty() ) {
+            swkbdSetInitialText( &swkbd, output.c_str() );
+        }
+        swkbdSetValidation( &swkbd, SWKBD_ANYTHING, 0, 0 );
+
+        char buffer[128] = {};
+        if ( swkbdInputText( &swkbd, buffer, sizeof( buffer ) ) == SWKBD_BUTTON_CONFIRM ) {
+            output = buffer;
+            if ( lengthLimit > 0 && output.size() > lengthLimit ) {
+                output.resize( lengthLimit );
+            }
+        }
+        LocalEvent::Get().reset();
+        Display::instance().render();
+        return;
+#endif
         if ( lengthLimit == 0 ) {
             // A string longer than 64KB is extremely impossible.
             lengthLimit = std::numeric_limits<uint16_t>::max();

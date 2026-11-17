@@ -268,6 +268,9 @@ bool Battle::Only::setup( const bool allowBackup, bool & resetBattleSetup )
     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
 
     fheroes2::Display & display = fheroes2::Display::instance();
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSCastleView battleOnlyView3DS( true );
+#endif
     const fheroes2::StandardWindow frameborder( fheroes2::Display::DEFAULT_WIDTH, fheroes2::Display::DEFAULT_HEIGHT, true, display );
 
     const fheroes2::Point windowOffset( frameborder.activeArea().x, frameborder.activeArea().y );

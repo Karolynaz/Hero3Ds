@@ -985,6 +985,55 @@ int Battle::Arena::DialogBattleHero( HeroBase & hero, const bool buttons, Status
 {
     const Settings & conf = Settings::Get();
 
+#if defined( TARGET_NINTENDO_3DS )
+    (void)status;
+    Cursor::Get().SetThemes( Cursor::POINTER );
+    const PlayerColor currentColor = GetCurrentColor();
+    const bool readonly = ( currentColor != hero.GetColor() || !buttons );
+
+    std::string title = hero.isCaptain() ? _( "Captain of %{name}" ) : _( "%{name} the %{race}" );
+    StringReplace( title, "%{name}", hero.GetName() );
+    StringReplace( title, "%{race}", Race::String( hero.GetRace() ) );
+
+    const std::string stats = _( "Attack" ) + std::string( ": " ) + std::to_string( hero.GetAttack() ) + "   " + _( "Defense" ) + ": "
+                              + std::to_string( hero.GetDefense() ) + "\n" + _( "Spell Power" ) + ": " + std::to_string( hero.GetPower() ) + "   "
+                              + _( "Knowledge" ) + ": " + std::to_string( hero.GetKnowledge() ) + "\n" + _( "Morale" ) + ": " + Morale::String( hero.GetMorale() )
+                              + "   " + _( "Luck" ) + ": " + Luck::String( hero.GetLuck() ) + "\n" + _( "Spell Points" ) + ": "
+                              + std::to_string( hero.GetSpellPoints() ) + "/" + std::to_string( hero.GetMaxSpellPoints() );
+
+    if ( !buttons || readonly ) {
+        fheroes2::show3DSMenu( title, { _( "Okay" ) }, {}, true, stats );
+        return 0;
+    }
+
+    Heroes * heroForHeroScreen = dynamic_cast<Heroes *>( &hero );
+    const bool canCast = hero.HaveSpellBook() && !hero.Modes( Heroes::SPELLCASTED );
+    const bool canHeroScreen = ( heroForHeroScreen != nullptr );
+    const bool canRetreat = CanRetreatOpponent( hero.GetColor() );
+    const bool canSurrender = CanSurrenderOpponent( hero.GetColor() );
+
+    while ( true ) {
+        const int choice = fheroes2::show3DSMenu( title, { _( "Cast Spell" ), _( "Hero Screen" ), _( "Retreat" ), _( "Surrender" ) },
+                                                  { canCast, canHeroScreen, canRetreat, canSurrender }, true, stats );
+        if ( choice < 0 ) {
+            return 0;
+        }
+        if ( choice == 0 ) {
+            return 1;
+        }
+        if ( choice == 1 && heroForHeroScreen != nullptr ) {
+            LocalEvent::Get().reset();
+            heroForHeroScreen->OpenDialog( true, true, true, true, false, false, fheroes2::getLanguageFromAbbreviation( conf.getGameLanguage() ) );
+            continue;
+        }
+        if ( choice == 2 ) {
+            return 2;
+        }
+        if ( choice == 3 ) {
+            return 3;
+        }
+    }
+#else
     Cursor & cursor = Cursor::Get();
     cursor.SetThemes( Cursor::POINTER );
 
@@ -1211,6 +1260,7 @@ int Battle::Arena::DialogBattleHero( HeroBase & hero, const bool buttons, Status
     }
 
     return result;
+#endif
 }
 
 bool Battle::DialogBattleSurrender( const HeroBase & hero, uint32_t cost, Kingdom & kingdom )

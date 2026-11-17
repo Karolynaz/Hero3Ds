@@ -649,6 +649,8 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
                     BuildingType building{ BUILD_NOTHING };
                     bool showIncome{ false };
                     bool nextTown{ false };
+                    bool recruitAll{ false };
+                    bool swapArmies{ false };
                 };
                 std::vector<CastleMenuItem> items;
                 if ( isBuild( BUILD_CASTLE ) ) {
@@ -656,6 +658,9 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
                 }
                 else if ( !isBuildingDisabled( BUILD_CASTLE ) ) {
                     items.push_back( { _( "Build Castle" ), BUILD_TENT } );
+                }
+                if ( isBuild( DWELLING_MONSTERS ) ) {
+                    items.push_back( { _( "Recruit All" ), BUILD_NOTHING, false, false, true, false } );
                 }
                 if ( isBuild( BUILD_WELL ) ) {
                     items.push_back( { _( "Well" ), BUILD_WELL } );
@@ -675,9 +680,12 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
                 if ( isBuild( BUILD_SHIPYARD ) ) {
                     items.push_back( { _( "Shipyard" ), BUILD_SHIPYARD } );
                 }
-                items.push_back( { _( "Kingdom Income" ), BUILD_NOTHING, true, false } );
+                if ( hero && _army.isValid() ) {
+                    items.push_back( { _( "Swap Armies" ), BUILD_NOTHING, false, false, false, true } );
+                }
+                items.push_back( { _( "Kingdom Income" ), BUILD_NOTHING, true, false, false, false } );
                 if ( buttonNextCastle.isEnabled() ) {
-                    items.push_back( { _( "Next Town" ), BUILD_NOTHING, false, true } );
+                    items.push_back( { _( "Next Town" ), BUILD_NOTHING, false, true, false, false } );
                 }
 
                 std::vector<std::string> labels;
@@ -689,7 +697,20 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
                 const int choice = fheroes2::show3DSMenu( GetName(), labels, {}, true, _( "Select a town facility or action." ) );
                 if ( choice >= 0 && static_cast<size_t>( choice ) < items.size() ) {
                     const auto & chosen = items[choice];
-                    if ( chosen.showIncome ) {
+                    if ( chosen.recruitAll ) {
+                        if ( _recruitCastleMax( GetArmy() ) ) {
+                            needRedraw = true;
+                        }
+                    }
+                    else if ( chosen.swapArmies && hero && _army.isValid() ) {
+                        hero->GetArmy().SwapTroops( _army );
+                        topArmyBar.ResetSelected();
+                        bottomArmyBar.ResetSelected();
+                        topArmyBar.Redraw( display );
+                        bottomArmyBar.Redraw( display );
+                        display.render( fheroes2::getBoundaryRect( topArmyBar.GetArea(), bottomArmyBar.GetArea() ) );
+                    }
+                    else if ( chosen.showIncome ) {
                         fheroes2::showKingdomIncome( GetKingdom(), Dialog::OK );
                     }
                     else if ( chosen.nextTown ) {

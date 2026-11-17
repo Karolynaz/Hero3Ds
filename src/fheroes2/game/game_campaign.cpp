@@ -1284,6 +1284,9 @@ fheroes2::GameMode Game::CompleteCampaignScenario( const bool isLoadingSaveFile 
 fheroes2::GameMode Game::SelectCampaignScenario( const fheroes2::GameMode prevMode, const bool allowToRestart )
 {
     fheroes2::Display & display = fheroes2::Display::instance();
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSCastleView campaignView3DS( true );
+#endif
     display.fill( 0 );
     Settings & conf = Settings::Get();
 

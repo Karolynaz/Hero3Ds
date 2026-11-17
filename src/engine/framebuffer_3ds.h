@@ -307,6 +307,7 @@ namespace fheroes2::threeDS
         }
         else if ( castle && castle->fullTop ) {
             copyScaledFull( top, 400, 240, std::min( imageWidth, 640 ), std::min( imageHeight, 480 ) );
+            copyScaledFull( bottom, 320, 240, std::min( imageWidth, 640 ), std::min( imageHeight, 480 ) );
         }
         else if ( castle && castle->nativeDual ) {
             copy( top, 400, 0, 1, 0, image );

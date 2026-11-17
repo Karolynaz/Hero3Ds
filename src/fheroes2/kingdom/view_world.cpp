@@ -589,6 +589,9 @@ fheroes2::Rect ViewWorld::ZoomROIs::GetROIinTiles() const
 void ViewWorld::ViewWorldWindow( const PlayerColor color, const ViewWorldMode mode, Interface::BaseInterface & interface )
 {
     fheroes2::Display & display = fheroes2::Display::instance();
+#if defined( TARGET_NINTENDO_3DS )
+    const fheroes2::Scope3DSCastleView viewWorld3DS( true );
+#endif
 
     fheroes2::ImageRestorer restorer( display );
 
@@ -727,6 +730,29 @@ void ViewWorld::ViewWorldWindow( const PlayerColor color, const ViewWorldMode mo
         if ( le.MouseClickLeft( buttonZoom.area() ) ) {
             changed = currentROI.zoomOut( true );
         }
+#if defined( TARGET_NINTENDO_3DS )
+        else if ( le.isKeyPressed( fheroes2::Key::KEY_E ) ) {
+            changed = currentROI.zoomOut( true );
+        }
+        else if ( le.isKeyPressed( fheroes2::Key::KEY_LEFT ) || le.isKeyPressed( fheroes2::Key::KEY_RIGHT ) || le.isKeyPressed( fheroes2::Key::KEY_UP )
+                  || le.isKeyPressed( fheroes2::Key::KEY_DOWN ) ) {
+            const int32_t panStep = fheroes2::tileWidthPx / 2;
+            fheroes2::Point panDelta;
+            if ( le.isKeyPressed( fheroes2::Key::KEY_LEFT ) ) {
+                panDelta.x -= panStep;
+            }
+            if ( le.isKeyPressed( fheroes2::Key::KEY_RIGHT ) ) {
+                panDelta.x += panStep;
+            }
+            if ( le.isKeyPressed( fheroes2::Key::KEY_UP ) ) {
+                panDelta.y -= panStep;
+            }
+            if ( le.isKeyPressed( fheroes2::Key::KEY_DOWN ) ) {
+                panDelta.y += panStep;
+            }
+            changed = currentROI.ChangeCenter( currentROI.getCenter() + panDelta );
+        }
+#endif
         else if ( le.isMouseCursorPosInArea( radar.GetRect() ) ) {
             changed = radar.QueueEventProcessingForWorldView( currentROI );
         }

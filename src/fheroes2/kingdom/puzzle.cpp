@@ -166,6 +166,9 @@ namespace
     void ShowStandardDialog( const Puzzle & pzl, const fheroes2::Image & sf )
     {
         fheroes2::Display & display = fheroes2::Display::instance();
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Scope3DSCastleView puzzleView3DS( true );
+#endif
 
         const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
 
@@ -222,6 +225,9 @@ namespace
     void ShowExtendedDialog( const Puzzle & pzl, const fheroes2::Image & sf )
     {
         fheroes2::Display & display = fheroes2::Display::instance();
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Scope3DSCastleView puzzleView3DS( true );
+#endif
 
         // Puzzle map is called only for the Adventure Map, not Editor.
         Interface::AdventureMap & adventureMapInterface = Interface::AdventureMap::Get();

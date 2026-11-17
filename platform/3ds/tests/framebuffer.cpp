@@ -99,11 +99,11 @@ int main()
     assert( pixel( bottom, 0, 0 ) == 0xABCDEF && pixel( bottom, 319, 191 ) == 0xABCDEF );
     assert( pixel( bottom, 0, 192 ) == 0x010203 && pixel( bottom, 319, 239 ) == 0x010203 );
 
-    // Castle sub-screen: 640x480 canvas scales across the full 400x240 top screen.
+    // Castle sub-screen: 640x480 canvas scales across top 400x240 and mirrors onto touchable bottom 320x240.
     const CastleFrame castleSub{ false, true, false, nullptr, 0, 0 };
     renderFramebuffers( image.data(), 640, 480, palette, top.data() + 1, bottom.data() + 1, false, nullptr, nullptr, nullptr, &castleSub );
     assert( pixel( top, 0, 0 ) == 0x112233 && pixel( top, 399, 239 ) == 0xABCDEF );
-    assert( pixel( bottom, 0, 0 ) == 0 && pixel( bottom, 319, 239 ) == 0 );
+    assert( pixel( bottom, 0, 0 ) == 0x112233 && pixel( bottom, 319, 239 ) == 0xABCDEF );
 
     // Castle native dual (Build Pen): 400x240 top 1:1 from y=[0..239] and 320x240 bottom 1:1 from y=[240..479].
     std::vector<uint8_t> dualImage( 640 * 480, 1 );

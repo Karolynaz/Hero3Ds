@@ -327,11 +327,14 @@ namespace EventProcessing
                 else if ( castleView ) {
                     projectedTouch = fheroes2::map3DSCastleTouch( { touch.px, touch.py } );
                 }
+                else if ( castleSubView ) {
+                    projectedTouch = { std::clamp<int32_t>( touch.px * 2, 0, 639 ), std::clamp<int32_t>( touch.py * 2, 0, 479 ) };
+                }
                 else if ( castleBuildView || fheroes2::is3DSAdventureLayout() ) {
                     projectedTouch = { touch.px, touch.py + 240 };
                 }
             }
-            const bool touchEnabled = nativeDialog || fheroes2::is3DSAdventureLayout() || castleBuildView
+            const bool touchEnabled = nativeDialog || fheroes2::is3DSAdventureLayout() || castleBuildView || castleSubView
                                       || ( ( battleView || castleView ) && ( !( held & KEY_TOUCH ) || projectedTouch.x >= 0 ) );
             const auto touchTransition
                 = _touchGate.update( touchEnabled && !battleViewChanged && !castleViewChanged && !dialogChanged, held & KEY_TOUCH, down & KEY_TOUCH, up & KEY_TOUCH );
