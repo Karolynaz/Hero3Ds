@@ -544,10 +544,9 @@ namespace fheroes2
                 changed |= show3DSAudioSettings( fromAdventureMap );
             }
             else if ( page == 0 ) {
-                showStandardTextMessage(
-                    _( "Controls" ),
-                    _( "Circle Pad: pointer | D-pad: pan/menu | A: confirm | B: back | R: inspect.\nWorld: Y Hero, L Town, X End Turn, Select File.\nCastle: X Build, Y Well, L Town, Select Menu.\nBattle: L Side, X Spell, Y Skip, Select Menu." ),
-                    Dialog::OK );
+                show3DSMenu(
+                    _( "Controls" ), { _( "Okay" ) }, {}, true,
+                    _( "Circle Pad: pointer | D-pad: pan/menu | A: confirm | B: back | R: inspect.\nWorld: Y Hero, L Town, X End Turn, Select File.\nCastle: X Build, Y Well, L Town, Select Menu.\nBattle: L Side, X Spell, Y Skip, Select Menu." ) );
             }
             else if ( page == 1 ) {
                 if ( choice == 0 ) {
