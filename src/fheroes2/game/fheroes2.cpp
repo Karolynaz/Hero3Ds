@@ -48,6 +48,15 @@
 #include <cassert>
 #endif
 
+#if defined( TARGET_NINTENDO_3DS )
+#include <cstdint>
+
+extern "C" {
+extern uint32_t __stacksize__;
+uint32_t __stacksize__ = 256 * 1024;
+}
+#endif
+
 #include "component_base.h"
 #include "exception.h"
 #include "game.h"
@@ -62,8 +71,6 @@ int main( int argc, char ** argv )
     assert( argc == __argc );
 
     argv = __argv;
-#else
-    (void)argc;
 #endif
 
     try {
@@ -71,7 +78,7 @@ int main( int argc, char ** argv )
 
         Game::initLogging();
         Game::initDataDir();
-        Game::initConfigDir( argv[0] );
+        Game::initConfigDir( ( argc > 0 && argv != nullptr ) ? argv[0] : nullptr );
 
         auto coreComponent = Game::createCoreComponent();
         auto displayComponent = Game::createDisplayComponent();
