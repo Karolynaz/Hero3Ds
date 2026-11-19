@@ -596,11 +596,19 @@ fheroes2::GameMode Game::NewGame( const bool isProbablyDemoVersion )
     LocalEvent & le = LocalEvent::Get();
 
     if ( isProbablyDemoVersion ) {
+#if defined( TARGET_NINTENDO_3DS )
+        fheroes2::showStandardTextMessage( _( "Warning" ),
+                                           _( "Heroes3ds needs data files from the original Heroes of Might and Magic II to operate. "
+                                              "You appear to be using the demo version of Heroes of Might and Magic II for this purpose. "
+                                              "Please note that only one scenario will be available in this setup." ),
+                                           Dialog::OK );
+#else
         fheroes2::showStandardTextMessage( _( "Warning" ),
                                            _( "fheroes2 needs data files from the original Heroes of Might and Magic II to operate. "
                                               "You appear to be using the demo version of Heroes of Might and Magic II for this purpose. "
                                               "Please note that only one scenario will be available in this setup." ),
                                            Dialog::OK );
+#endif
     }
 
     while ( le.HandleEvents() ) {

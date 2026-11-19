@@ -89,7 +89,11 @@ enum class BattleTurnOrderState : uint8_t
 class Settings
 {
 public:
+#if defined( TARGET_NINTENDO_3DS )
+    static constexpr const char * configFileName = "Heroes3ds.cfg";
+#else
     static constexpr const char * configFileName = "fheroes2.cfg";
+#endif
 
     Settings( const Settings & ) = delete;
 

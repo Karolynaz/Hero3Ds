@@ -349,7 +349,11 @@ namespace
     std::string getHotKeyFileContent()
     {
         std::ostringstream os;
+#if defined( TARGET_NINTENDO_3DS )
+        os << "# Heroes3ds hotkey file (saved by version " ENGINE_VERSION ")" << std::endl;
+#else
         os << "# fheroes2 hotkey file (saved by version " ENGINE_VERSION ")" << std::endl;
+#endif
         os << std::endl;
 
         Game::HotKeyCategory currentCategory = hotKeyEventInfo[hotKeyEventToInt( Game::HotKeyEvent::NONE ) + 1].category;

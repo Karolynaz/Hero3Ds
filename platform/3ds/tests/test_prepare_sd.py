@@ -47,6 +47,7 @@ class PrepareSDTests(unittest.TestCase):
             (repo / 'files' / 'data').mkdir(parents=True)
             (repo / 'files' / 'data' / 'resurrection.h2d').write_bytes(b'engine')
             target, count = module.stage(game, sd, repo)
+            self.assertEqual(target, sd / '3ds' / 'Heroes3ds')
             self.assertEqual(count, 3)
             self.assertTrue((target / 'data' / 'HEROES2.AGG').is_file())
             saved = target / 'files' / 'save' / 'my.sav'

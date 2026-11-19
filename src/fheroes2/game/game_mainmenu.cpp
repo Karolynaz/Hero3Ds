@@ -270,7 +270,11 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
         fheroes2::selectLanguage( fheroes2::getSupportedLanguages(), fheroes2::getLanguageFromAbbreviation( conf.getGameLanguage() ), true );
 
         {
+#if defined( TARGET_NINTENDO_3DS )
+            std::string body( _( "Welcome to Heroes of Might and Magic II on Nintendo 3DS (Heroes3ds)!" ) );
+#else
             std::string body( _( "Welcome to Heroes of Might and Magic II powered by fheroes2 engine!" ) );
+#endif
 
             if ( System::isTouchInputAvailable() ) {
                 body += _(

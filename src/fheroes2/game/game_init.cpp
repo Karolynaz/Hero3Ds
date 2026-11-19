@@ -62,10 +62,17 @@ namespace fheroes2
 
 namespace
 {
+#if defined( TARGET_NINTENDO_3DS )
+    const std::string_view rootDir{ "Heroes3ds" };
+    const std::string_view filesDir{ "files" };
+
+    const char * const appCaption{ "Heroes3ds, version: " ENGINE_VERSION };
+#else
     const std::string_view rootDir{ "fheroes2" };
     const std::string_view filesDir{ "files" };
 
     const char * const appCaption{ "fheroes2 engine, version: " ENGINE_VERSION };
+#endif
 
     class DisplayInitializer final : public ComponentBase
     {

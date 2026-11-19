@@ -161,7 +161,11 @@ namespace
         output.resize( fheroes2::Display::DEFAULT_WIDTH, fheroes2::Display::DEFAULT_HEIGHT - background.height() );
         output.fill( 0 );
 
+#if defined( TARGET_NINTENDO_3DS )
+        const fheroes2::Text caption( "Heroes3ds (" ENGINE_VERSION ")", fheroes2::FontType::normalYellow() );
+#else
         const fheroes2::Text caption( "fheroes2 engine (" ENGINE_VERSION ")", fheroes2::FontType::normalYellow() );
+#endif
         caption.draw( output.width() / 2 - caption.width() / 2, 17, output );
 
         return output;

@@ -62,15 +62,16 @@ jobs:
           unzip -p /tmp/makerom.zip makerom > /usr/local/bin/makerom
           chmod +x /usr/local/bin/makerom
           bannertool makebanner -i platform/3ds/cia/banner.png -a platform/3ds/cia/banner.wav -o build/3ds/banner.bnr
-          bannertool makesmdh -s "Heroes II 3DS" -l "Free Heroes of Might and Magic II" -p "fheroes2 / Hero3DS" -i platform/3ds/cia/icon.png -o build/3ds/icon.icn
-          ELF=build/3ds/Hero3DS.elf
-          if [ ! -f "$ELF" ]; then ELF=build/3ds/Hero3DS; fi
-          makerom -f cia -o build/3ds/Hero3DS.cia -elf "$ELF" -rsf platform/3ds/cia/cia.rsf -icon build/3ds/icon.icn -banner build/3ds/banner.bnr
+          bannertool makesmdh -s "Heroes3ds" -l "Heroes of Might and Magic II" -p "Heroes3ds" -i platform/3ds/cia/icon.png -o build/3ds/icon.icn
+          ls -lh build/3ds/banner.bnr build/3ds/icon.icn
+          ELF=build/3ds/Heroes3ds.elf
+          if [ ! -f "$ELF" ]; then ELF=build/3ds/Heroes3ds; fi
+          makerom -f cia -o build/3ds/Heroes3ds.cia -elf "$ELF" -rsf platform/3ds/cia/cia.rsf -icon build/3ds/icon.icn -banner build/3ds/banner.bnr
       - uses: actions/upload-artifact@v4
         with:
-          name: Hero3DS-experimental
+          name: Heroes3ds
           path: |
-            build/3ds/Hero3DS.3dsx
-            build/3ds/Hero3DS.cia
-            build/3ds/Hero3DS.smdh
+            build/3ds/Heroes3ds.3dsx
+            build/3ds/Heroes3ds.cia
+            build/3ds/Heroes3ds.smdh
           if-no-files-found: error

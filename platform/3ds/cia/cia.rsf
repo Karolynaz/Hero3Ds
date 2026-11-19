@@ -1,7 +1,7 @@
 BasicInfo:
-  Title                   : "Heroes II 3DS"
+  Title                   : "Heroes3ds"
   CompanyCode             : "00"
-  ProductCode             : "CTR-P-FH2S"
+  ProductCode             : "CTR-P-H3DS"
   ContentType             : Application
   Logo                    : Homebrew
 

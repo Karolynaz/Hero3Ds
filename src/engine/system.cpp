@@ -82,7 +82,7 @@ namespace
     {
 #if defined( TARGET_NINTENDO_3DS )
         (void)appName;
-        return "sdmc:/3ds/fheroes2";
+        return "sdmc:/3ds/Heroes3ds";
 #elif defined( TARGET_PS_VITA )
         return System::concatPath( "ux0:data", appName );
 #elif defined( TARGET_NINTENDO_SWITCH )
@@ -350,7 +350,7 @@ std::string System::GetConfigDirectory( const std::string_view appName )
     std::string result = [&appName]() -> std::string {
 #if defined( TARGET_NINTENDO_3DS )
         (void)appName;
-        return "sdmc:/3ds/fheroes2";
+        return "sdmc:/3ds/Heroes3ds";
 #elif defined( __linux__ ) && !defined( ANDROID )
         if ( const char * configEnv = getenv( "XDG_CONFIG_HOME" ); configEnv != nullptr ) {
             return concatPath( configEnv, appName );
@@ -385,7 +385,7 @@ std::string System::GetDataDirectory( const std::string_view appName )
     std::string result = [&appName]() -> std::string {
 #if defined( TARGET_NINTENDO_3DS )
         (void)appName;
-        return "sdmc:/3ds/fheroes2";
+        return "sdmc:/3ds/Heroes3ds";
 #elif defined( __linux__ ) && !defined( ANDROID )
         if ( const char * dataEnv = getenv( "XDG_DATA_HOME" ); dataEnv != nullptr ) {
             return concatPath( dataEnv, appName );

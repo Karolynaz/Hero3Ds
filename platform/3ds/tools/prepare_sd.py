@@ -53,17 +53,17 @@ def stage(source, sd_root, repo_root, binary=None, overwrite=False):
         raise ValueError('Projekte trūksta files/data/resurrection.h2d.')
     if binary is not None and (not binary.is_file() or binary.suffix.lower() != '.3dsx'):
         raise ValueError('Programa turi būti esamas .3dsx failas.')
-    target = sd_root / '3ds' / 'fheroes2'
+    target = sd_root / '3ds' / 'Heroes3ds'
     copies = []
     for name, folder in folders.items():
         if folder is not None and folder.is_dir():
             copies.extend((p, target / name.lower() / p.relative_to(folder)) for p in folder.rglob('*') if p.is_file())
     copies.append((engine_data, target / 'files' / 'data' / 'resurrection.h2d'))
     if binary is not None:
-        copies.append((binary, target / 'fheroes2.3dsx'))
+        copies.append((binary, target / 'Heroes3ds.3dsx'))
         smdh = binary.with_suffix('.smdh')
         if smdh.is_file():
-            copies.append((smdh, target / 'fheroes2.smdh'))
+            copies.append((smdh, target / 'Heroes3ds.smdh'))
     # Preflight the entire copy before touching the card. Existing saves/config are
     # never part of the source list, even when --overwrite is explicitly selected.
     conflicts = [str(dst) for _, dst in copies if dst.exists()]
@@ -92,7 +92,7 @@ def main():
     if music is not None and music.is_dir() and any(p.suffix.casefold() in ('.mp3', '.flac') for p in music.iterdir() if p.is_file()):
         print('Pastaba: 3DS palaiko OGG muziką; MP3/FLAC takelius reikia konvertuoti į OGG, išlaikant jų pavadinimus.')
     if args.binary is None:
-        print('Programa nenukopijuota: dar reikės sukompiliuoto fheroes2.3dsx.')
+        print('Programa nenukopijuota: dar reikės sukompiliuoto Heroes3ds.3dsx.')
 
 
 if __name__ == '__main__':

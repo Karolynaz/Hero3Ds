@@ -32,7 +32,11 @@ namespace fheroes2
 
 namespace Game
 {
+#if defined( TARGET_NINTENDO_3DS )
+    constexpr const char * hotkeyFileName{ "Heroes3ds.key" };
+#else
     constexpr const char * hotkeyFileName{ "fheroes2.key" };
+#endif
 
     enum class HotKeyEvent : int32_t
     {

@@ -1,4 +1,4 @@
-# Hero3DS — Nintendo 3DS portas
+# Heroes3ds — Nintendo 3DS portas
 
 Eksperimentinė tikro fheroes2 variklio integracija, orientuota į originalų Nintendo 3DS / 3DS XL / 2DS. Tikras ARM build’as ir `.3dsx` supakavimas praėjo;
 veikimas konsolėje dar nepatikrintas.
@@ -54,7 +54,7 @@ cmake -S platform/3ds -B build/3ds \
 cmake --build build/3ds -j4
 ```
 
-Laukiami rezultatai: `build/3ds/Hero3DS.3dsx`, `build/3ds/Hero3DS.smdh`. Naudokite Homebrew Launcher; CIA diegimas šiame etape neparuoštas.
+Laukiami rezultatai: `build/3ds/Heroes3ds.3dsx`, `build/3ds/Heroes3ds.smdh`, `build/3ds/Heroes3ds.cia`. Naudokite Homebrew Launcher arba FBI (.cia diegimui).
 
 Šioje darbo aplinkoje devkitARM/libctru nėra. Bandymas pasiekti oficialų paketų serverį grąžino HTTP 403. Host kompiliatoriaus patikros su libctru API
 deklaracijomis tikrina C++ suderinamumą, bet ne ARM ABI, SDK linkavimą ar veikimą konsolėje.
@@ -64,9 +64,9 @@ deklaracijomis tikrina C++ suderinamumą, bet ne ARM ABI, SDK linkavimą ar veik
 SD kortelės šaknyje sukurkite:
 
 ```text
-3ds/fheroes2/
-  fheroes2.3dsx             ← sukompiliuotas Hero3DS.3dsx, pervadintas
-  fheroes2.smdh             ← Hero3DS.smdh, pervadintas
+3ds/Heroes3ds/
+  Heroes3ds.3dsx             ← sukompiliuotas Heroes3ds.3dsx
+  Heroes3ds.smdh             ← sukompiliuotas Heroes3ds.smdh
   data/                    ← originalaus žaidimo DATA turinys
     HEROES2.AGG             ← būtinas
     HEROES2X.AGG            ← jei turite Price of Loyalty
@@ -79,7 +79,7 @@ SD kortelės šaknyje sukurkite:
     save/                  ← žaidimo išsaugojimai; kuriamas automatiškai
 ```
 
-Konsolėje šis kelias yra `sdmc:/3ds/fheroes2`. Konfigūracija ir spartieji klavišai saugomi toje pačioje žaidimo šaknyje. Originalūs komercinio žaidimo duomenys
+Konsolėje šis kelias yra `sdmc:/3ds/Heroes3ds`. Konfigūracija (`Heroes3ds.cfg`), spartieji klavišai (`Heroes3ds.key`) ir rekordai (`Heroes3ds.hgs`) saugomi toje pačioje žaidimo šaknyje. Originalūs komercinio žaidimo duomenys
 nepateikiami.
 
 Galite paruošti kortelę automatiškai:
@@ -88,7 +88,7 @@ Galite paruošti kortelę automatiškai:
 python3 platform/3ds/tools/prepare_sd.py \
   --game "/kelias/iki/Heroes II" \
   --sd "/Volumes/SD" \
-  --binary "build/3ds/Hero3DS.3dsx"
+  --binary "build/3ds/Heroes3ds.3dsx"
 ```
 
 Be `--binary` įrankis paruošia duomenis, bet nesukuria žaidimo programos. Jis atpažįsta DATA/MAPS/ANIM/MUSIC pavadinimus nepriklausomai nuo raidžių dydžio.
@@ -118,8 +118,8 @@ ir zlib) sukompiliuotas ir sulinkuotas host aplinkoje naudojant laikinas libctru
 patikrintos. Testinis host executable nėra žaidimui ar konsolėje naudojama programa.
 
 Pridėtas `.github/workflows/3ds.yml`: įkėlus pakeitimus į fork'ą, GitHub Actions gali paleisti portable testus ir tikrą devkitARM build'ą oficialiame [devkitPro
-Docker atvaizde](https://github.com/devkitPro/docker/blob/master/devkitarm/Dockerfile). Sėkmės atveju workflow pateiks `Hero3DS-experimental` artefaktą su
-`.3dsx` ir `.smdh`. Tikras devkitARM build’as, `.3dsx`/`.smdh` pakavimas ir portable bei audio testai
+Docker atvaizde](https://github.com/devkitPro/docker/blob/master/devkitarm/Dockerfile). Sėkmės atveju workflow pateiks `Heroes3ds` artefaktą su
+`.3dsx`, `.smdh` ir `.cia`. Tikras devkitARM build’as, `.3dsx`/`.smdh` pakavimas ir portable bei audio testai
 praėjo [CI paleidime](https://github.com/Karolynaz/Hero3Ds/actions/runs/36928840456). Veikimas tikroje konsolėje dar nepatikrintas.
 
 GitHub darbo šaka: `port/nintendo-3ds`. Peržiūra: [draft PR #1](https://github.com/Karolynaz/Hero3Ds/pull/1). Main/master dar nepakeistas.

@@ -73,7 +73,11 @@ namespace fheroes2
 
 namespace
 {
+#if defined( TARGET_NINTENDO_3DS )
+    const std::string highScoreFileName = "Heroes3ds.hgs";
+#else
     const std::string highScoreFileName = "fheroes2.hgs";
+#endif
     fheroes2::HighScoreDataContainer highScoreDataContainer;
     const int32_t initialHighScoreEntryOffsetY = 72;
     const int32_t highScoreEntryStepY = 40;
